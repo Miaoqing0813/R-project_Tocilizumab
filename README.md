@@ -1,11 +1,15 @@
 # R-project_Tocilizumab
-This is a cost-utility model to evaluate the cost effectiveness of Tocilizumab for people with Giant Cell Arthritis (GCA). 
-The model is based on the HTA model developed by Roche in 2017. 
+- This is a cost-utility model to evaluate the cost effectiveness of Tocilizumab for people with Giant Cell Arthritis (GCA). 
+- The model is based on the HTA model developed by Roche in 2017. 
 
 ## Interventions
-- Intervention arm: Tocilizumab for 2 years + 26 weeks tapering steroids
-- Comparison arm: Placebo + 52 weeks tapering steroids
+- Intervention arm: Tocilizumab for 2 years + 26 weeks tapering steroids (prednisolone rather than prednisone)
+- Comparison arm: Placebo + 52 weeks tapering steroids (typically as long as 18-24 months in routine clinical practice)
 - Cumulative GC dose based on GiACTA trial and real-world data: 1) prior to the first flare; 2) during secondary remission; 3) during relapse/flare
+
+## Population
+- Overall ITT population in the GiACTA trial
+- Subgroups: 1) newly diagnosed; 2) relapsed
 
 ## Overview of Model Structure
 A semi-Markov model using a monthly cycle and life-time (30 years) time horizon:
@@ -16,16 +20,6 @@ A semi-Markov model using a monthly cycle and life-time (30 years) time horizon:
 
 - GCA-related complications (visual loss, stroke) are modeled as events which only impact the health state values assigned to a proportion of patients at the relapse/flare states.  
 - Steroid-related AEs (fractures, diabetes, heart failure, MI, infection) are modeled as events which only impact the health state values assigned to a proportion of patients at the remission/flare states.  
-
-
-- GCA-related complication: visual loss
-- Steroid-related AE: fracture
-- Steroid-related AE: diabetes
-- Steroid-related AE: heart failure
-- Steroid-related AE: MI
-- Steroid-related AE: infection
-- GCA-related complication and steroid-related AE: stroke
-- Dead
 
 ## Transition probabilities
 - Transition probabilities from the initial remission state to the first flare/relapse event are time-dependent and based on individually fitted parametric models using patient-level data from the GiACTA trial. 
@@ -55,4 +49,4 @@ A semi-Markov model using a monthly cycle and life-time (30 years) time horizon:
 ## Questions to discuss
 - The model starts with the initial remission state and did not account for period prior to remission, although ERG did not consider this leads to any significant bias as the evidence does not suggest that this period is longer with tocilizumab. 
 - Costs assigned to the flare/relapse state were considered to represent additional costs that would be incurred on top of the background management costs applied to the remission states. However, the ERG notes that uncertainty remains regarding whether it is appropriate to include these background costs in addition to the 3-month event cost assigned to the relapse/flare state. 
-
+- The company used 52-week prednisone tapering regimen while the ERG pointed that clinicians often used a longer tapering regimen in routine clinical practice (typically 18-24 months), which could lead to a greater cumulative steroid burden. Shall we explore additional scenario? 

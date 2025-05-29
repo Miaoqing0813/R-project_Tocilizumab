@@ -69,18 +69,3 @@ cycle_empty_array <- array(NA,
 
 cycle_costs <- cycle_qalys <- cycle_empty_array
 
-# Death transitions (e.g., from all states except Dead)
-death_prob <- 0.005  # placeholder, could be age-dependent
-for (s in c("Initial remission", "Relapse", "Subsequent remission")) {
-  tpm_TCZ[s, "Dead"] <- death_prob
-  tpm_TCZ[s, s] <- tpm_TCZ[s, s] - death_prob
-}
-
-# Clone and edit for GC alone arm
-tpm_GC <- tpm_TCZ
-tpm_GC["Initial remission", "Relapse"] <- p_first_flare_GC
-tpm_GC["Initial remission", "Initial remission"] <- 1 - p_first_flare_GC
-tpm_GC["Relapse", "Subsequent remission"] <- exp(p_escape_rate_GC)
-tpm_GC["Relapse", "Relapse"] <- 1 - tpm_GC["Relapse", "Subsequent remission"]
-
-

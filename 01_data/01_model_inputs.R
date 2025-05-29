@@ -8,8 +8,12 @@ arms <- c("TCZ_plus_GC", "GC_alone")
 
 # Time horizon and cycle length
 cycle_length <- 1 
-time_horizon <- 30 * 48  # 30-year lifetime horizon on a weekly basis
+time_horizon <- 30 * 12  # 30-year lifetime horizon on a monthly basis
 n_cycles <- time_horizon / cycle_length
+
+# Patient's age 
+initial.age <- 70 # starting age
+age_vector <- initial.age + ((1:n_cycles - 1) * cycle_length / 12) # get patients' age in each cycle
 
 # Apply discount rates to costs and utilities
 disc_rate <- 0.035 
@@ -17,6 +21,7 @@ disc_rate <- 0.035
 apply_discount <- function(x, r, t) {
   x / ((1 + r)^t)
 }
+
 
 # Transition Probabilities
 # Probability of First Flare (0-26 weeks)
@@ -31,14 +36,25 @@ p_first_flare_TCZ_27_end <- 0.213
 p_first_flare_GC_27_end <- 0.987
   p_first_flare_GC_27_end_se <- 0.052
 
-# Probability of Relapse/Flare from Remission (Escape)
-p_escape_rate_TCZ <- -1.056  # log scale
-  p_escape_se_TCZ <- 0.354
-  p_escape_days_TCZ <- 228.39
-p_escape_rate_GC <- -0.300  # log scale
-  p_escape_se_GC <- 0.224
-  p_escape_days_GC <- 224.77
+# Probability of Relapse/Flare from subsequent remission (Escape)
+log_flare_TCZ <- -1.056  # log scale
+  log_flare_se_TCZ <- 0.354
+  days_flare_TCZ <- 228.39
+log_flare_rate_GC <- -0.300  # log scale
+  log_flare_se_GC <- 0.224
+  days_flare_GC <- 224.77
+  
+# Mortality
+allcause.mort  <- read.csv(file = "01_data/Raw data/01_all_cause_mortality.csv", stringsAsFactors = F)
+v.allcause.mort  <- as.matrix(dplyr::select(allcause.mort,Total))
 
+get_monthly_mort <- function(ages, mort_table) {
+  annual_probs <- mort_table[pmin(round(ages), 100) + 1]
+  monthly_probs <- 1 - exp(-(-log(1 - annual_probs)) / 12)
+  return(monthly_probs)
+}
+v.allcause.mort.monthly <- get_monthly_mort(age_vector, v.allcause.mort)
+  
 # GCA-Related Complications at Relapse/Flare
 p_visual_loss <- 0.00025
   p_visual_loss_alpha <- 12

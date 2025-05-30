@@ -43,6 +43,8 @@ get_tpm <- function(arm, cycle) {
   return(tpm)
 }
 
+
+
 # state populations 
 pop <- array(data = NA,
              dim = c(n_states, n_cycles, n_arms),

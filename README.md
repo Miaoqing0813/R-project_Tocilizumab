@@ -8,18 +8,18 @@
 - Cumulative GC dose based on GiACTA trial and real-world data: 1) prior to the first flare; 2) during secondary remission; 3) during relapse/flare
 
 ## Population
-- Overall ITT population in the GiACTA trial
-- Subgroups: 1) newly diagnosed; 2) relapsed
+- Overall ITT population in the GiACTA trial, including both newly diagnosed and relapsing patients
 
 ## Overview of Model Structure
 A semi-Markov model using a monthly cycle and life-time (30 years) time horizon:
-- On initial remission (on and off steroids) 
-- On relapse/flare
-- On subsequent remission 
-- Dead
+- Active GCA (on steroid)
+- Initial remission (off steroid)
+- Relapse/flare
+- Subsequent remission (on maintenance steroid)
+- Death
 
-- GCA-related complications (visual loss, stroke) are modeled as events which only impact the health state values assigned to a proportion of patients at the relapse/flare states.  
-- Steroid-related AEs (fractures, diabetes, heart failure, MI, infection) are modeled as events which only impact the health state values assigned to a proportion of patients at the remission/flare states.  
+  - GCA-related complications (visual loss, stroke) are modeled as events which only impact the health state values assigned to a proportion of patients at the relapse/flare states.  
+  - Steroid-related AEs (fractures, diabetes, heart failure, MI, infection) are modeled as events which only impact the health state values assigned to a proportion of patients at the remission/flare states.  
 
 ## Transition probabilities
 - Transition probabilities from the initial remission state to the first flare/relapse event are time-dependent and based on individually fitted parametric models using patient-level data from the GiACTA trial. 

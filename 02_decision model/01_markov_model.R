@@ -3,23 +3,34 @@
 ######################
 
 # Markov States: 
-n_states <- 4  
-state_names <- c("Initial remission", "Relapse", "Subsequent remission", "Dead")
+n_states <- 5  
+state_names <- c("Active GCA", "Initial remission", "Relapse", "Subsequent remission", "Dead")
 
 # Time-dependent transition probability matrices (TPM) creation function
-get_tpm <- function(arm, cycle) {
+get_tpm <- function(arm, cycle, time_in_ActiveGCA) {
   tpm <- matrix(0, nrow = n_states, ncol = n_states,
                 dimnames = list(from = state_names, to = state_names))
   
   p_allcause_mort <- v.allcause.mort.monthly[cycle]
   
   if (arm == "TCZ_plus_GC") {
-    p_first_flare <- if (cycle <= 26) p_first_flare_TCZ_0_26 else p_first_flare_TCZ_27_end
+    p_first_flare <- if (cycle <= 6) p_first_flare_TCZ_0_26 else p_first_flare_TCZ_27_end
     p_flare <- exp(log_flare_TCZ)
+    time_threshold <- 6  # to track how long the cohort has been in the state
   } else {
-    p_first_flare <- if (cycle <= 26) p_first_flare_GC_0_26 else p_first_flare_GC_27_end
+    p_first_flare <- if (cycle <= 6) p_first_flare_GC_0_26 else p_first_flare_GC_27_end
     p_flare <- exp(log_flare_GC)
+    time_threshold <- 12  # to track how long the cohort has been in the state
   }
+  
+  # From Active GCA 
+  if (time_in_ActiveGCA >= time_threshold) { # all patients in the Active GCA state will transition to initial emission at a fixed time point, provided they haven't died or relapsed.
+    tpm["Active GCA", "Initial remission"] <- 1 - p_first_flare - p_allcause_mort
+  } else {
+    tpm["Active GCA", "Active GCA"] <- 1 - p_first_flare - p_allcause_mort
+  }
+  tpm["Active GCA", "Relapse"] <- p_first_flare
+  tpm["Active GCA", "Dead"] <- p_allcause_mort
   
   # From Initial remission
   tpm["Initial remission", "Relapse"] <- p_first_flare
@@ -29,8 +40,6 @@ get_tpm <- function(arm, cycle) {
   # From Relapse: move directly to remission if alive
   tpm["Relapse", "Subsequent remission"] <- 1 - p_allcause_mort
   tpm["Relapse", "Dead"] <- p_allcause_mort
-  tpm["Relapse", "Relapse"] <- 0
-  tpm["Relapse", "Initial remission"] <- 0
   
   # From Subsequent remission
   tpm["Subsequent remission", "Relapse"] <- p_flare
@@ -42,8 +51,6 @@ get_tpm <- function(arm, cycle) {
   
   return(tpm)
 }
-
-
 
 # state populations 
 pop <- array(data = NA,

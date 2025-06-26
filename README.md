@@ -18,8 +18,8 @@ A semi-Markov model using a monthly cycle and life-time (30 years) time horizon:
 - Subsequent remission (on maintenance steroid)
 - Death
 
-  - GCA-related complications (visual loss, stroke) are modeled as events which only impact the health state values assigned to a proportion of patients at the relapse/flare states.  
-  - Steroid-related AEs (fractures, diabetes, heart failure, MI, infection) are modeled as events which only impact the health state values assigned to a proportion of patients at the remission/flare states.  
+  - GCA-related complications (visual loss) are modeled as events which only impact the health state values assigned to a proportion of patients at the relapse/flare states. Notice that stroke is both a GCA-related and steroid-related condition.  
+  - Steroid-related AEs (fractures, diabetes, heart failure, MI, stroke, infection) are modeled as events which only impact the health state values assigned to a proportion of patients at the remission/flare states.  
 
 ## Transition probabilities
 - Transition probabilities from the initial remission state to the first flare/relapse event are time-dependent and based on individually fitted parametric models using patient-level data from the GiACTA trial. 

@@ -8,19 +8,19 @@ state_names <- c("Active GCA", "Initial remission", "Relapse", "Subsequent remis
 
 # Time-dependent transition probability matrices (TPM) creation function
 get_tpm <- function(arm, cycle) {
+  p_allcause_mort <- v.allcause.mort.monthly[cycle]
+  
   tpm <- matrix(0, nrow = n_states, ncol = n_states,
                 dimnames = list(from = state_names, to = state_names))
-  
-  p_allcause_mort <- v.allcause.mort.monthly[cycle]
   
   if (arm == 1) {
     p_first_flare <- if (cycle <= 6) p_first_flare_TCZ_0_26 else p_first_flare_TCZ_27_end
     p_flare <- exp(log_flare_TCZ)
-    cycle_to_init_remission <- 6  # move from Active GCA to initial remission
+    cycle_to_init_remission <- 6
   } else {
     p_first_flare <- if (cycle <= 6) p_first_flare_GC_0_26 else p_first_flare_GC_27_end
     p_flare <- exp(log_flare_GC)
-    cycle_to_init_remission <- 12 # move from Active GCA to initial remission
+    cycle_to_init_remission <- 12
   }
   
   # From Active GCA
@@ -39,7 +39,7 @@ get_tpm <- function(arm, cycle) {
   tpm["Initial remission", "Dead"] <- p_allcause_mort
   tpm["Initial remission", "Initial remission"] <- 1 - p_first_flare - p_allcause_mort
   
-  # From Relapse: move directly to remission if alive
+  # From Relapse
   tpm["Relapse", "Subsequent remission"] <- 1 - p_allcause_mort
   tpm["Relapse", "Dead"] <- p_allcause_mort
   
@@ -61,8 +61,8 @@ pop <- array(data = NA,
                              cycle = NULL,
                              arms = arms))
 
-# Assume all patients starts with initial remission: newly diagnosed patients
-pop["Initial remission", cycle = 1, ] <- 1
+# Assume all patients starts with Active GCA: newly diagnosed patients
+pop["Active GCA", cycle = 1, ] <- 1
 pop[-1, cycle = 1, ] <- 0
 
 # New patients: useful if Y1 cost is different from Y2 onwards
@@ -72,11 +72,94 @@ trans <- array(data = NA,
                                cycle = NULL,
                                arms = arms))
 
+# Model GCA-related complications and steroid-related adverse events as events rather than distinct health states
+event_log <- list(
+  stroke = array(0, dim = c(n_arms, n_cycles)),
+  vl = array(0, dim = c(n_arms, n_cycles)),
+  mi = array(0, dim = c(n_arms, n_cycles)),
+  hf = array(0, dim = c(n_arms, n_cycles)),
+  fractures = array(0, dim = c(n_arms, n_cycles)),
+  diabetes = array(0, dim = c(n_arms, n_cycles)), 
+  infection = array(0, dim = c(n_arms, n_cycles))
+)
+
 # Sum costs and QALYs for each cycle at a time for each diagnostic outcome 
-cycle_empty_array <- array(NA,
+cycle_empty_array <- array(0,
                            dim = c(n_arms, n_cycles),
                            dimnames = list(arms = arms,
                            cycle = NULL))
 
 cycle_costs <- cycle_qalys <- cycle_empty_array
+event_costs <- event_utility <- cycle_empty_array
+
+# Running the model 
+
+## Update pop -- number of people at each state per cycle
+for (i in 1:n_arms) {
+  for (j in 2:n_cycles) {
+    tpm <- get_tpm(arm = i, cycle = j - 1)
+    pop[, cycle = j, arm = i] <- pop[, cycle = j - 1, arm = i] %*% tpm
+
+# Loop over states and apply event probabilities
+for (state in state_names[state_names != "Dead"]) {
+  
+  state_pop <- pop[state, j, i]
+  
+  # Define cycle time in years
+  t_years <- j * cycle_length / 12
+  current_year <- floor(t_years) + 1  # Start from year 1, not 0
+  
+  # --- GCA-related complications: only in Relapse ---
+  if (state == "Relapse") {
+    # Stroke
+    n_stroke <- state_pop * p_stroke
+    event_log$stroke[i, j] <- n_stroke
+    stroke_cost <- ifelse(current_year == 1, c_stroke_y1, c_stroke_y2on)
+    stroke_qaly <- ifelse(current_year == 1, q_stroke_y1, q_stroke_y2on)
+    event_costs[i, j] <- event_costs[i, j] + apply_discount(n_stroke * stroke_cost, disc_rate, t_years)
+    event_utility[i, j] <- event_utility[i, j] + apply_discount(n_stroke * stroke_qaly, disc_rate, t_years)
+    
+    # Vision loss
+    n_vl <- state_pop * p_vl
+    event_log$vl[i, j] <- n_vl
+    vl_cost <- ifelse(current_year == 1, c_vl_y1, c_vl_y2on)
+    event_costs[i, j] <- event_costs[i, j] + apply_discount(n_vl * vl_cost, disc_rate, t_years)
+    event_utility[i, j] <- event_utility[i, j] + apply_discount(n_vl * q_vl, disc_rate, t_years)
+  }
+  
+  # --- Steroid-related events (all non-death states) ---
+  steroid_ae_probs <- get_steroid_ae_probs(cycle = j)
+  
+  for (event in names(steroid_ae_probs)) {
+    prob_event <- steroid_ae_probs[[event]]
+    n_event <- state_pop * prob_event
+    event_log[[event]][i, j] <- event_log[[event]][i, j] + n_event
+    
+    # Event-specific cost and utility loss
+    if (event == "mi") {
+      cost <- ifelse(current_year == 1, c_mi_y1, c_mi_y2on)
+      qloss <- ifelse(current_year == 1, q_mi_y1, q_mi_y2on)
+    } else if (event == "hf") {
+      cost <- ifelse(current_year == 1, c_hf_y1, c_hf_y2on)
+      qloss <- ifelse(current_year == 1, q_hf_y1, q_hf_y2on)
+    } else if (event == "fractures") {
+      cost <- ifelse(current_year == 1, c_fracture_y1, c_fracture_y2on)
+      qloss <- ifelse(current_year == 1, q_fracture_y1, q_fracture_y2on)
+    } else if (event == "dm") {
+      cost <- c_dm
+      qloss <- q_dm
+    } else if (event == "infection") {
+      cost <- c_infection
+      qloss <- q_infection
+    } else {
+      cost <- 0
+      qloss <- 0
+    }
+    
+    event_costs[i, j] <- event_costs[i, j] + apply_discount(n_event * cost, disc_rate, t_years)
+    event_utility[i, j] <- event_utility[i, j] + apply_discount(n_event * qloss, disc_rate, t_years)
+  }
+}
+  }
+}
 

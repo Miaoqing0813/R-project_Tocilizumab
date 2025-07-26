@@ -8,31 +8,30 @@ state_names <- c("Active GCA", "Initial remission", "Relapse", "Subsequent remis
 
 # Time-dependent transition probability matrices (TPM) creation function
 get_tpm <- function(arm, cycle) {
+  
+  # Ensure cycle does not exceed the length of input data
+  cycle <- min(cycle, 360) # monthly cycle for 30 years
+  
+  # Get monthly all-cause mortality rate
   p_allcause_mort <- v.allcause.mort.monthly[cycle]
   
+  # Extract cycle-specific flare probabilities
+  if (arm == 1) {
+    p_first_flare <- df_probs_first_flare_treat$Trans_Prob[cycle]
+    p_flare <- exp(log_flare_TCZ)
+  } else {
+    p_first_flare <- df_probs_first_flare_control$Trans_Prob[cycle]
+    p_flare <- exp(log_flare_GC)
+  }
+  
+  # Initialize TPM
   tpm <- matrix(0, nrow = n_states, ncol = n_states,
                 dimnames = list(from = state_names, to = state_names))
   
-  if (arm == 1) {
-    p_first_flare <- if (cycle <= 6) p_first_flare_TCZ_0_26 else p_first_flare_TCZ_27_end
-    p_flare <- exp(log_flare_TCZ)
-    cycle_to_init_remission <- 6
-  } else {
-    p_first_flare <- if (cycle <= 6) p_first_flare_GC_0_26 else p_first_flare_GC_27_end
-    p_flare <- exp(log_flare_GC)
-    cycle_to_init_remission <- 12
-  }
-  
   # From Active GCA
-  if (cycle <= cycle_to_init_remission) {
-    tpm["Active GCA", "Relapse"] <- p_first_flare
-    tpm["Active GCA", "Dead"] <- p_allcause_mort
-    tpm["Active GCA", "Active GCA"] <- 1 - p_first_flare - p_allcause_mort
-  } else {
-    tpm["Active GCA", "Relapse"] <- p_first_flare
-    tpm["Active GCA", "Dead"] <- p_allcause_mort
-    tpm["Active GCA", "Initial remission"] <- 1 - p_first_flare - p_allcause_mort
-  }
+  tpm["Active GCA", "Relapse"] <- p_first_flare
+  tpm["Active GCA", "Dead"] <- p_allcause_mort
+  tpm["Active GCA", "Active GCA"] <- 1 - p_first_flare - p_allcause_mort
   
   # From Initial remission
   tpm["Initial remission", "Relapse"] <- p_first_flare

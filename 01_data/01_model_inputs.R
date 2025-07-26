@@ -22,7 +22,7 @@ l.steroid.effect.durations <- c("5y" = 5*12,
                                 "20y" = 20*12, 
                                 "Lifetime" = time_horizon)
 
-steroid_effect_duration_months <- l.steroid.effect.durations["5y"]
+steroid_effect_duration_months <- l.steroid.effect.durations["5y"] # base case for 5 years
 
 # Apply discount rates to costs and utilities
 disc_rate <- 0.035 
@@ -86,18 +86,10 @@ get_steroid_ae_probs <- function(cycle, duration = steroid_effect_duration_month
   return(steroid_ae_probs)
 }
 
-# Transition Probabilities
-# Probability of First Flare (0-26 weeks)
-p_first_flare_TCZ_0_26 <- 0.421
-p_first_flare_TCZ_0_26_se <- 0.016
-p_first_flare_GC_0_26 <- 0.832
-p_first_flare_GC_0_26_se <- 0.015
-
-# Probability of First Flare (27 weeks to end of GC treatment)
-p_first_flare_TCZ_27_end <- 0.213
-p_first_flare_TCZ_27_end_se <- 0.006
-p_first_flare_GC_27_end <- 0.987
-p_first_flare_GC_27_end_se <- 0.052
+# Probability of First Flare
+source("01_data/02_survival curves.R")
+df_probs_first_flare_treat # cycle-specific first flare probabilities for the TCZ arm
+df_probs_first_flare_control # cycle-specific first flare probabilities for the control arm
 
 # Probability of Relapse/Flare from subsequent remission (Escape)
 log_flare_TCZ <- -1.056  # log scale

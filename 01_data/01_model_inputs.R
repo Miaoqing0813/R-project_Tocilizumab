@@ -39,7 +39,7 @@ list2env(as.list(df.params.mean), .GlobalEnv)
 
 # Mortality
 allcause.mort  <- read.csv(file = "01_data/Raw data/All_cause_mortality.csv", stringsAsFactors = F)
-v.allcause.mort  <- as.matrix(dplyr::select(allcause.mort,Total))
+v.allcause.mort  <- as.matrix(dplyr::select(allcause.mort,Weighted))
 
 get_monthly_mort <- function(ages, mort_table) {
   annual_probs <- mort_table[pmin(round(ages), 100) + 1]
@@ -50,10 +50,26 @@ v.allcause.mort.monthly <- get_monthly_mort(v.age, v.allcause.mort)
 
 # Hazard ratios for steroid-related adverse events
 steroid.hr  <- read.csv(file = "01_data/Raw data/Steroid HR.csv", stringsAsFactors = F)
-v.steroid.hr.dm  <- as.matrix(dplyr::select(steroid.hr,Diabetes))
-v.steroid.hr.cvd  <- as.matrix(dplyr::select(steroid.hr,CVD))
-v.steroid.hr.infection  <- as.matrix(dplyr::select(steroid.hr,Infection))
-v.steroid.hr.fractures  <- as.matrix(dplyr::select(steroid.hr,Fractures))
+  # Define the variable groups and suffixes
+  conditions <- c("Mortality", "Diabetes", "CVD", "Infection", "Fractures")
+  group <- c("Control", "Treat")
+  suffixes <- c("", ".LCI", ".UCI")  # For mean, LCI, and UCI
+
+  # Loop through each combination of conditions, diagnostic results, and suffix
+  for (var in conditions) {
+    for (path in group) {
+      for (suffix in suffixes) {
+        # Construct the column name dynamically
+        column_name <- paste0(var, ".", path, suffix)
+        
+        # Construct the variable name dynamically
+        var_name <- paste0("v.steroid.hr.", tolower(var), ".", tolower(path), tolower(suffix))
+        
+        # Assign the selected column to a matrix variable dynamically
+        assign(var_name, as.matrix(dplyr::select(steroid.hr, !!sym(column_name))))
+      }
+    }
+  }
 
 # Function to calculate probabilities for steroid adverse events
 get_steroid_ae_probs <- function(cycle, duration = steroid_effect_duration_months) {
@@ -66,7 +82,8 @@ get_steroid_ae_probs <- function(cycle, duration = steroid_effect_duration_month
       hf         = p_hf,
       dm         = p_dm,
       infection  = p_infection,
-      fractures  = p_fractures
+      fractures  = p_fractures,
+      mortality  = v.allcause.mort.monthly[cycle]
     )
     
   } else {
@@ -79,7 +96,8 @@ get_steroid_ae_probs <- function(cycle, duration = steroid_effect_duration_month
       hf         = p_hf        * v.steroid.hr.cvd[idx, ],
       dm         = p_dm        * v.steroid.hr.dm[idx, ],
       infection  = p_infection * v.steroid.hr.infection[idx, ],
-      fractures  = p_fractures * v.steroid.hr.fractures[idx, ]
+      fractures  = p_fractures * v.steroid.hr.fractures[idx, ],
+      mortality  = v.allcause.mort.monthly[cycle] * v.steroid.hr.mort[idx, ]
     )
   }
   
@@ -87,17 +105,13 @@ get_steroid_ae_probs <- function(cycle, duration = steroid_effect_duration_month
 }
 
 # Probability of First Flare
-source("01_data/02_survival curves.R")
-df_probs_first_flare_treat # cycle-specific first flare probabilities for the TCZ arm
-df_probs_first_flare_control # cycle-specific first flare probabilities for the control arm
+source("01_data/02b_survival subgroups.R")
+trans_probs_first_flare_treat_1yr_weibull # cycle-specific first flare probabilities for the TCZ arm
+trans_probs_first_flare_control_1yr_weibull # cycle-specific first flare probabilities for the control arm
 
-# Probability of Relapse/Flare from subsequent remission (Escape)
-log_flare_TCZ <- -1.056  # log scale
-log_flare_se_TCZ <- 0.354
-days_flare_TCZ <- 228.39
-log_flare_GC <- -0.300  # log scale
-log_flare_se_GC <- 0.224
-days_flare_GC <- 224.77
+# Probability of Relapse/Flare from subsequent remission (Escape) for newly-onset patients following ERG's scenario analysis 6.3.1
+probs_subseq_flare_treat <- 0.0035*(52/12)
+probs_subseq_flare_control <- 0.0076*(52/12)
 
 # Utilities
 # Baseline utilities for health states (from GiACTA trial)

@@ -116,7 +116,7 @@ surv_first_flare_control_beyond <- fit.fun(
 weibull_model_control_beyond <- surv_first_flare_control_beyond$model.objects$models[["Weibull (AFT)"]]
 exp_model_control_beyond <- surv_first_flare_control_beyond$model.objects$models[["Exponential"]]
 
-# Combined function to calculate monthly transition probabilities from 0 to 30 years
+# Function to calculate monthly transition probabilities from 0 to 30 years
 calculate_transition_probs <- function(short_term_model, long_term_model) {
   
   # PART 1: Short-term monthly probabilities (0 to treatment duration)
@@ -205,7 +205,7 @@ calculate_transition_probs <- function(short_term_model, long_term_model) {
   return(results)
 }
 
-
+# Transition probabolities calculation for each scenario
 trans_probs_first_flare_treat_weibull <- calculate_transition_probs(
   exp_model_treat_within, 
   weibull_model_treat_beyond

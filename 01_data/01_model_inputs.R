@@ -8,8 +8,8 @@ arms <- c("TCZ_plus_GC", "GC_alone")
 
 # Time horizon and cycle length
 cycle_length <- 1 
-time_horizon <- 30 * 12  # 30-year lifetime horizon on a monthly basis
-n_cycles <- time_horizon / cycle_length
+n_cycles <- 10 * 12  # 10-year lifetime horizon on a monthly basis
+time_horizon_weeks <- 10*52 # 10-year lifetime horizon on a weekly basis
 
 # Patient's age 
 initial_age <- 70 # starting age
@@ -55,7 +55,7 @@ steroid.hr  <- read.csv(file = "01_data/Raw data/Steroid HR.csv", stringsAsFacto
   group <- c("Control", "Treat")
   suffixes <- c("", ".LCI", ".UCI")  # For mean, LCI, and UCI
 
-  # Loop through each combination of conditions, diagnostic results, and suffix
+  # Loop through each combination of conditions, treatment groups, and suffix
   for (var in conditions) {
     for (path in group) {
       for (suffix in suffixes) {
@@ -106,15 +106,17 @@ get_steroid_ae_probs <- function(cycle, duration = steroid_effect_duration_month
 
 # Probability of First Flare
 source("01_data/02b_survival subgroups.R")
-trans_probs_first_flare_treat_1yr_weibull # cycle-specific first flare probabilities for the TCZ arm
-trans_probs_first_flare_control_1yr_weibull # cycle-specific first flare probabilities for the control arm
+trans_probs_first_flare_treat_weibull # cycle-specific first flare probabilities for the TCZ arm
+trans_probs_first_flare_control_weibull # cycle-specific first flare probabilities for the control arm
+trans_probs_first_flare_treat_exp # cycle-specific first flare probabilities for the TCZ arm
+trans_probs_first_flare_control_exp # cycle-specific first flare probabilities for the control arm
 
 # Probability of Relapse/Flare from subsequent remission (Escape) for newly-onset patients following ERG's scenario analysis 6.3.1
 probs_subseq_flare_treat <- 0.0035*(52/12)
 probs_subseq_flare_control <- 0.0076*(52/12)
 
 # Utilities
-# Baseline utilities for health states (from GiACTA trial)
+# Utilities for health states (ITT population)
 utility_remission <- 0.77130
   utility_remission_alpha <- 3060.148
   utility_remission_beta <- 907.372

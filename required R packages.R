@@ -1,6 +1,6 @@
 
 install.packages(c("devtools", "dplyr", "ggplot2", "reshape2", "data.table", 
-                   "hesim", "here", "flexsurv", "IPDfromKM", "mixcure", "zoo"
+                   "hesim", "here", "flexsurv", "IPDfromKM", "mixcure", "zoo",
                    "kableExtra", "doRNG", "doParallel", "survminer", "tm"))
 
 library(devtools)

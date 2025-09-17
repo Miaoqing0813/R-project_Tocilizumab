@@ -95,7 +95,7 @@ surv_first_flare_treat_beyond <- fit.fun(
   status = "status",
   data = IPD_first_flare_data_treat,
   extrapolate = TRUE,
-  times = seq(0, 1560, by = 52), 
+  times = seq(0, time_horizon_weeks, by = 52), 
   xlow = 0, xhigh = 1560,
   ylow = 0, yhigh = 1,
   mods = c("exp", "weibull")
@@ -108,7 +108,7 @@ surv_first_flare_control_beyond <- fit.fun(
   status = "status",
   data = IPD_first_flare_data_control,
   extrapolate = TRUE,
-  times = seq(0, 1560, by = 52),
+  times = seq(0, time_horizon_weeks, by = 52),
   xlow = 52, xhigh = 1560,
   ylow = 0, yhigh = 1,
   mods = c("exp", "weibull")
@@ -116,7 +116,7 @@ surv_first_flare_control_beyond <- fit.fun(
 weibull_model_control_beyond <- surv_first_flare_control_beyond$model.objects$models[["Weibull (AFT)"]]
 exp_model_control_beyond <- surv_first_flare_control_beyond$model.objects$models[["Exponential"]]
 
-# Function to calculate monthly transition probabilities from 0 to 30 years
+# Function to calculate monthly transition probabilities 
 calculate_transition_probs <- function(short_term_model, long_term_model) {
   
   # PART 1: Short-term monthly probabilities (0 to treatment duration)
@@ -135,8 +135,8 @@ calculate_transition_probs <- function(short_term_model, long_term_model) {
   short_trans_prob_lower <- 1 - (short_surv_upper[-1] / short_surv_upper[-length(short_surv_upper)])
   short_trans_prob_upper <- 1 - (short_surv_lower[-1] / short_surv_lower[-length(short_surv_lower)])
   
-  # PART 2: Long-term yearly probabilities converted to monthly (years 2-30)
-  yearly_timepoints <- seq(104, 1560, by = 52) # Years 2-30
+  # PART 2: Long-term yearly probabilities converted to monthly (years 2-10)
+  yearly_timepoints <- seq(104, time_horizon_weeks, by = 52) # Years 2-10
   
   # Get long-term survival probabilities
   long_surv_summary <- summary(long_term_model, type = "survival", t = yearly_timepoints, ci = TRUE)[[1]]
@@ -150,7 +150,7 @@ calculate_transition_probs <- function(short_term_model, long_term_model) {
   end_short_upper <- c(short_surv_upper[length(short_surv_upper)], long_surv_upper)
   
   # Calculate yearly transition probabilities for long-term
-  n_long_years <- length(end_short_surv) - 1  # 29 years (2-30)
+  n_long_years <- length(end_short_surv) - 1  # 9 years (2-10)
   
   long_yearly_trans_est <- 1 - (end_short_surv[-1] / end_short_surv[-length(end_short_surv)])
   long_yearly_trans_lower <- 1 - (end_short_upper[-1] / end_short_upper[-length(end_short_upper)])
@@ -161,26 +161,26 @@ calculate_transition_probs <- function(short_term_model, long_term_model) {
   long_monthly_trans_lower <- 1 - (1 - long_yearly_trans_lower)^(1/12)
   long_monthly_trans_upper <- 1 - (1 - long_yearly_trans_upper)^(1/12)
   
-  # PART 3: Combine into full 30-year monthly sequence
+  # PART 3: Combine into full 10-year monthly sequence
   
   # Create month sequence
-  all_months <- 1:360  # 30 years * 12 months
+  all_months <- 1:n_cycles  # 10 years * 12 months
   
   # Initialize results
-  all_trans_prob <- numeric(360)
-  all_trans_lower <- numeric(360)
-  all_trans_upper <- numeric(360)
+  all_trans_prob <- numeric(n_cycles)
+  all_trans_lower <- numeric(n_cycles)
+  all_trans_upper <- numeric(n_cycles)
   
-  # Fill in short-term (months 1-12)
+  # Fill in short-term (year 1)
   all_trans_prob[1:n_short_months] <- short_trans_prob_est
   all_trans_lower[1:n_short_months] <- short_trans_prob_lower
   all_trans_upper[1:n_short_months] <- short_trans_prob_upper
   
-  # Fill in long-term (months 13-360)
+  # Fill in long-term (year 2-10)
   # Each yearly probability applies to 12 months
   for (i in 1:n_long_years) {
     start_month <- 12 + (i-1)*12 + 1
-    end_month <- min(12 + i*12, 360)
+    end_month <- min(12 + i*12, n_cycles)
     
     all_trans_prob[start_month:end_month] <- long_monthly_trans_est[i]
     all_trans_lower[start_month:end_month] <- long_monthly_trans_lower[i]
@@ -198,7 +198,7 @@ calculate_transition_probs <- function(short_term_model, long_term_model) {
     trans_prob = all_trans_prob,
     trans_prob_lower = all_trans_lower,
     trans_prob_upper = all_trans_upper,
-    period = c(rep("Short-term", 12), rep("Long-term", 348)),
+    period = c(rep("Short-term", 12), rep("Long-term", n_cycles-12)),
     stringsAsFactors = FALSE
   )
   

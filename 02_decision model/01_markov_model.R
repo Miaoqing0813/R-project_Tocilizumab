@@ -4,7 +4,8 @@
 
 # Markov States: 
 n_states <- 5  
-state_names <- c("Active GCA", "Initial remission", "Relapse", "Subsequent remission", "Dead")
+state_names <- c("Active GCA (on steroids)", "Initial remission (off steroids)", 
+                 "Relapse", "Subsequent remission (on maintenance steroids)", "Dead")
 
 # Time-dependent transition probability matrices (TPM) creation function
 get_tpm <- function(arm, cycle) {
@@ -17,48 +18,51 @@ get_tpm <- function(arm, cycle) {
   
   # Extract cycle-specific flare probabilities
   if (arm == 1) {
-    p_first_flare <- trans_probs_first_flare_treat_1yr_weibull$trans_prob[cycle]
+    p_first_flare <- trans_probs_first_flare_treat_weibull$trans_prob[cycle]
     p_flare <- probs_subseq_flare_treat
   } else {
-    p_first_flare <- trans_probs_first_flare_control_1yr_weibull$trans_prob[cycle]
+    p_first_flare <- trans_probs_first_flare_control_weibull$trans_prob[cycle]
     p_flare <- probs_subseq_flare_control
   }
+  
+  # Define steroid treatment duration by arm
+  steroid_duration <- ifelse(arm == 1, 7, 20)  # Treatment: 6 months, Control: 19 months
   
   # Initialize TPM
   tpm <- matrix(0, nrow = n_states, ncol = n_states,
                 dimnames = list(from = state_names, to = state_names))
   
   # From Active GCA
-  if (cycle < 13) {
-    # Within first year
-    tpm["Active GCA", "Relapse"] <- p_first_flare
-    tpm["Active GCA", "Dead"] <- p_allcause_mort
-    tpm["Active GCA", "Active GCA"] <- 1 - p_first_flare - p_allcause_mort
+  if (cycle < steroid_duration) {
+    # Within steroid treatment period
+    tpm["Active GCA (on steroids)", "Relapse"] <- p_first_flare
+    tpm["Active GCA (on steroids)", "Dead"] <- p_allcause_mort
+    tpm["Active GCA (on steroids)", "Active GCA (on steroids)"] <- 1 - p_first_flare - p_allcause_mort
   } else {
-    # After first year, move to remission if still active
-    tpm["Active GCA", "Initial remission"] <- 1 - p_first_flare - p_allcause_mort
-    tpm["Active GCA", "Relapse"] <- p_first_flare
-    tpm["Active GCA", "Dead"] <- p_allcause_mort
+    # After steroid treatment period, move to remission if still active
+    tpm["Active GCA (on steroids)", "Initial remission (off steroids)"] <- 1 - p_first_flare - p_allcause_mort
+    tpm["Active GCA (on steroids)", "Relapse"] <- p_first_flare
+    tpm["Active GCA (on steroids)", "Dead"] <- p_allcause_mort
   }
   
   # From Initial remission
-  if (cycle >= 13) {
-    tpm["Initial remission", "Relapse"] <- p_first_flare
-    tpm["Initial remission", "Dead"] <- p_allcause_mort
-    tpm["Initial remission", "Initial remission"] <- 1 - p_first_flare - p_allcause_mort
+  if (cycle >= steroid_duration) {
+    tpm["Initial remission (off steroids)", "Relapse"] <- p_first_flare
+    tpm["Initial remission (off steroids)", "Dead"] <- p_allcause_mort
+    tpm["Initial remission (off steroids)", "Initial remission (off steroids)"] <- 1 - p_first_flare - p_allcause_mort
   } else {
-    # Before cycle 53 nobody should be in remission
-    tpm["Initial remission", "Initial remission"] <- 1
+    # Before steroid treatment ends, nobody should be in remission
+    tpm["Initial remission (off steroids)", "Initial remission (off steroids)"] <- 1
   }
   
-  # From Relapse
-  tpm["Relapse", "Subsequent remission"] <- 1 - p_allcause_mort
+  # From Relapse (stays only one cycle)
+  tpm["Relapse", "Subsequent remission (on maintenance steroids)"] <- 1 - p_allcause_mort
   tpm["Relapse", "Dead"] <- p_allcause_mort
   
   # From Subsequent remission
-  tpm["Subsequent remission", "Relapse"] <- p_flare
-  tpm["Subsequent remission", "Dead"] <- p_allcause_mort
-  tpm["Subsequent remission", "Subsequent remission"] <- 1 - p_flare - p_allcause_mort
+  tpm["Subsequent remission (on maintenance steroids)", "Relapse"] <- p_flare
+  tpm["Subsequent remission (on maintenance steroids)", "Dead"] <- p_allcause_mort
+  tpm["Subsequent remission (on maintenance steroids)", "Subsequent remission (on maintenance steroids)"] <- 1 - p_flare - p_allcause_mort
   
   # Absorbing state
   tpm["Dead", "Dead"] <- 1

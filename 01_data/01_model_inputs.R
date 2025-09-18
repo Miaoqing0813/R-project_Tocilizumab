@@ -4,7 +4,7 @@
 
 # Intervention arms to compare
 n_arms <- 2
-arms <- c("TCZ_plus_GC", "GC_alone")
+arms <- c(1, 0)   # 1 = treat (TCZ_plus_GC), 0 = control (GC_alone)
 
 # Time horizon and cycle length
 cycle_length <- 1 
@@ -12,7 +12,7 @@ n_cycles <- 10 * 12  # 10-year lifetime horizon on a monthly basis
 time_horizon_weeks <- 10*52 # 10-year lifetime horizon on a weekly basis
 
 # Patient's age 
-initial_age <- 70 # starting age
+initial_age <- 71 # starting age
 v.age <- initial_age + ((1:n_cycles - 1) * cycle_length / 12) # get patients' age in each cycle
 
 # Steroid effects duration
@@ -20,7 +20,7 @@ l.steroid.effect.durations <- c("5y" = 5*12,
                                 "10y" = 10*12, 
                                 "15y" = 15*12, 
                                 "20y" = 20*12, 
-                                "Lifetime" = time_horizon)
+                                "30y" = 30*12)
 
 steroid_effect_duration_months <- l.steroid.effect.durations["5y"] # base case for 5 years
 
@@ -30,6 +30,14 @@ disc_rate <- 0.035
 apply_discount <- function(x, r, t) {
   x / ((1 + r)^(t - 1))
 }
+
+# Different steroid tapering schedules
+steroid.taper.schedule <- c("Control", "Treatment", "Control_relapse", "Tretment_relapse") 
+n.steroid.taper.schedule <- length(steroid.taper.schedule)
+
+# Health states of Markov models for steroid-related adverse events
+state.names <- c("No disease", "Diseases") # a 2-state Markov model
+n.states <- length(state.names)
 
 # Load input parameter Excel table
 init.parameters <- read.csv(file = "01_data/Raw data/Init_params.csv", stringsAsFactors = F)
@@ -52,7 +60,7 @@ v.allcause.mort.monthly <- get_monthly_mort(v.age, v.allcause.mort)
 steroid.hr  <- read.csv(file = "01_data/Raw data/Steroid HR.csv", stringsAsFactors = F)
   # Define the variable groups and suffixes
   conditions <- c("Mortality", "Diabetes", "CVD", "Infection", "Fractures")
-  group <- c("Control", "Treat")
+  group <- c("Control", "Treat", "Control.Relapse", "Treat.Relapse")
   suffixes <- c("", ".LCI", ".UCI")  # For mean, LCI, and UCI
 
   # Loop through each combination of conditions, treatment groups, and suffix
@@ -72,10 +80,22 @@ steroid.hr  <- read.csv(file = "01_data/Raw data/Steroid HR.csv", stringsAsFacto
   }
 
 # Function to calculate probabilities for steroid adverse events
-get_steroid_ae_probs <- function(cycle, duration = steroid_effect_duration_months) {
+get_steroid_ae_probs_by_state <- function(cycle, state, arm, 
+                                          time_in_state = 1,
+                                          duration = steroid_effect_duration_months) {
   
-  # If steroid effect has worn off, use HR = 1
+  # Choose which steroid tapering schedule to use
+  if (state == "Initial remission") {
+    schedule_index <- ifelse(arm == 1, "treat", "control")  
+  } else if (state %in% c("Relapse","Subsequent remission")) {
+    schedule_index <- ifelse(arm == 1, "treat.relapse", "control.relapse")
+  }
+    
+  max_cycle <- nrow(steroid.hr)
+  
+  # Determine index into HR vectors
   if (cycle > duration) {
+    # steroid effect has worn off
     steroid_ae_probs <- list(
       stroke     = p_stroke,
       mi         = p_mi,
@@ -87,22 +107,56 @@ get_steroid_ae_probs <- function(cycle, duration = steroid_effect_duration_month
     )
     
   } else {
-    max_cycle <- nrow(steroid.hr) # Determine the maximum number of rows in the hazard ratio vectors
-    idx <- ifelse(cycle <= max_cycle, cycle, max_cycle) # Clamp cycle index to max_cycle to avoid out-of-bounds error
+    if (state == "Initial remission") {
+      idx <- min(cycle, max_cycle)
+    } else if (state == "Relapse") {
+      idx <- 1
+    } else if (state == "Subsequent remission") {
+      # Use cycles since entering this state (1st cycle in this state = index 2)
+      idx <- min(time_in_state + 1, max_cycle)
+    }
+    
+    # Select HRs by schedule
+    if (schedule_index == "treat") {
+      cvd_hr <- v.steroid.hr.cvd.treat[idx, ]
+      dm_hr <- v.steroid.hr.diabetes.treat[idx, ]
+      infection_hr <- v.steroid.hr.infection.treat[idx, ]
+      fractures_hr <- v.steroid.hr.fractures.treat[idx, ]
+      mortality_hr <- v.steroid.hr.mortality.treat[idx, ]
+    } else if (schedule_index == "control") {
+      cvd_hr <- v.steroid.hr.cvd.control[idx, ]
+      dm_hr <- v.steroid.hr.diabetes.control[idx, ]
+      infection_hr <- v.steroid.hr.infection.control[idx, ]
+      fractures_hr <- v.steroid.hr.fractures.control[idx, ]
+      mortality_hr <- v.steroid.hr.mortality.control[idx, ]
+    } else if (schedule_index == "treat.relapse") {
+      cvd_hr <- v.steroid.hr.cvd.treat.relapse[idx, ]
+      dm_hr <- v.steroid.hr.diabetes.treat.relapse[idx, ]
+      infection_hr <- v.steroid.hr.infection.treat.relapse[idx, ]
+      fractures_hr <- v.steroid.hr.fractures.treat.relapse[idx, ]
+      mortality_hr <- v.steroid.hr.mortality.treat.relapse[idx, ]
+    } else if (schedule_index == "control.relapse") {
+      cvd_hr <- v.steroid.hr.cvd.control.relapse[idx, ]
+      dm_hr <- v.steroid.hr.diabetes.control.relapse[idx, ]
+      infection_hr <- v.steroid.hr.infection.control.relapse[idx, ]
+      fractures_hr <- v.steroid.hr.fractures.control.relapse[idx, ]
+      mortality_hr <- v.steroid.hr.mortality.control.relapse[idx, ]
+    }
     
     steroid_ae_probs <- list(
-      stroke     = p_stroke    * v.steroid.hr.cvd[idx, ],
-      mi         = p_mi        * v.steroid.hr.cvd[idx, ],
-      hf         = p_hf        * v.steroid.hr.cvd[idx, ],
-      dm         = p_dm        * v.steroid.hr.dm[idx, ],
-      infection  = p_infection * v.steroid.hr.infection[idx, ],
-      fractures  = p_fractures * v.steroid.hr.fractures[idx, ],
-      mortality  = v.allcause.mort.monthly[cycle] * v.steroid.hr.mort[idx, ]
+      stroke     = p_stroke    * cvd_hr,
+      mi         = p_mi        * cvd_hr,
+      hf         = p_hf        * cvd_hr,
+      dm         = p_dm        * dm_hr,
+      infection  = p_infection * infection_hr,
+      fractures  = p_fractures * fractures_hr,
+      mortality  = v.allcause.mort.monthly[cycle] * mortality_hr
     )
   }
   
   return(steroid_ae_probs)
 }
+
 
 # Probability of First Flare
 source("01_data/02b_survival subgroups.R")
@@ -123,8 +177,20 @@ utility_remission <- 0.77130
 utility_relapse <- 0.64200
   utility_relapse_alpha <- 245.783
   utility_relapse_beta <- 137.057
+utility_decrement_relapse <- utility_remission - utility_relapse
   
 # Utility decrements 
+utility_decrement_vl <- utility_remission - q_vl
+utility_decrement_stroke_y1 <- utility_remission - q_stroke_y1
+utility_decrement_stroke_y2on <- utility_remission - q_stroke_y1
+utility_decrement_mi_y1 <- utility_remission - q_mi_y1
+utility_decrement_mi_y2on <- utility_remission - q_mi_y1
+utility_decrement_hf_y1 <- utility_remission - q_hf_y1
+utility_decrement_hf_y2on <- utility_remission - q_hf_y1
+utility_decrement_fracture_y1 <- utility_remission - q_fracture_y1
+utility_decrement_fracture_y2on <- utility_remission - q_fracture_y1
+utility_decrement_dm <- utility_remission - q_dm
+
 utility_decrement_GCA <- 0.1293
 utility_decrement_GC <- 0.03
 utility_decrement_vision_loss <- 0.36734

@@ -17,12 +17,9 @@ v.age <- initial_age + ((1:n_cycles - 1) * cycle_length / 12) # get patients' ag
 
 # Steroid effects duration
 l.steroid.effect.durations <- c("5y" = 5*12, 
-                                "10y" = 10*12, 
-                                "15y" = 15*12, 
-                                "20y" = 20*12, 
-                                "30y" = 30*12)
+                                "10y" = 10*12)
 
-steroid_effect_duration_months <- l.steroid.effect.durations["5y"] # base case for 5 years
+steroid_effect_duration_months <- l.steroid.effect.durations["10y"] # base case for 10 years
 
 # Apply discount rates to costs and utilities
 disc_rate <- 0.035 
@@ -31,13 +28,8 @@ apply_discount <- function(x, r, t) {
   x / ((1 + r)^(t - 1))
 }
 
-# Different steroid tapering schedules
+# Different steroid tapering schedules depending on health states and treatment arms
 steroid.taper.schedule <- c("Control", "Treatment", "Control_relapse", "Tretment_relapse") 
-n.steroid.taper.schedule <- length(steroid.taper.schedule)
-
-# Health states of Markov models for steroid-related adverse events
-state.names <- c("No disease", "Diseases") # a 2-state Markov model
-n.states <- length(state.names)
 
 # Load input parameter Excel table
 init.parameters <- read.csv(file = "01_data/Raw data/Init_params.csv", stringsAsFactors = F)
@@ -168,123 +160,17 @@ trans_probs_first_flare_control_exp # cycle-specific first flare probabilities f
 # Probability of Relapse/Flare from subsequent remission (Escape) for newly-onset patients following ERG's scenario analysis 6.3.1
 probs_subseq_flare_treat <- 0.0035*(52/12)
 probs_subseq_flare_control <- 0.0076*(52/12)
-
-# Utilities
-# Utilities for health states (ITT population)
-utility_remission <- 0.77130
-  utility_remission_alpha <- 3060.148
-  utility_remission_beta <- 907.372
-utility_relapse <- 0.64200
-  utility_relapse_alpha <- 245.783
-  utility_relapse_beta <- 137.057
-utility_decrement_relapse <- utility_remission - utility_relapse
   
-# Utility decrements 
-utility_decrement_vl <- utility_remission - q_vl
-utility_decrement_stroke_y1 <- utility_remission - q_stroke_y1
-utility_decrement_stroke_y2on <- utility_remission - q_stroke_y1
-utility_decrement_mi_y1 <- utility_remission - q_mi_y1
-utility_decrement_mi_y2on <- utility_remission - q_mi_y1
-utility_decrement_hf_y1 <- utility_remission - q_hf_y1
-utility_decrement_hf_y2on <- utility_remission - q_hf_y1
-utility_decrement_fracture_y1 <- utility_remission - q_fracture_y1
-utility_decrement_fracture_y2on <- utility_remission - q_fracture_y1
-utility_decrement_dm <- utility_remission - q_dm
+# Annual utility decrements: need to divide by 12 to get monthly decrements
+q_decrement_vl <- q_remission - q_vl
+q_decrement_stroke_y1 <- q_remission - q_stroke_y1
+q_decrement_stroke_y2on <- q_remission - q_stroke_y1
+q_decrement_mi_y1 <- q_remission - q_mi_y1
+q_decrement_mi_y2on <- q_remission - q_mi_y1
+q_decrement_hf_y1 <- q_remission - q_hf_y1
+q_decrement_hf_y2on <- q_remission - q_hf_y1
+q_decrement_fracture_y1 <- q_remission - q_fracture_y1
+q_decrement_fracture_y2on <- q_remission - q_fracture_y1
+q_decrement_dm <- q_remission - q_dm
 
-utility_decrement_GCA <- 0.1293
-utility_decrement_GC <- 0.03
-utility_decrement_vision_loss <- 0.36734
-  utility_decrement_vision_loss_alpha <- 217.927
-  utility_decrement_vision_loss_beta <- 0.003
-utility_decrement_minor_stroke <- 0.17882
-  utility_decrement_minor_stroke_alpha <- 754.201
-  utility_decrement_minor_stroke_beta <- 0.001
-utility_decrement_major_stroke <- 0.49122
-  utility_decrement_major_stroke_alpha <- 105.394
-  utility_decrement_major_stroke_beta <- 0.005
-utility_decrement_diabetes <- 0.09264
-  utility_decrement_diabetes_alpha <- 177.372
-  utility_decrement_diabetes_beta <- 0.001
-utility_decrement_fractures_vertebral_y1 <- 0.33179
-  utility_decrement_fractures_vertebral_y1_alpha <- 269.152
-  utility_decrement_fractures_vertebral_y1_beta <- 0.002
-utility_decrement_fractures_hip_y1 <- 0.23915
-  utility_decrement_fractures_hip_y1_alpha <- 484.138
-  utility_decrement_fractures_hip_y1_beta <- 0.002
-utility_decrement_fractures_humerus_y1 <- 0.10772
-  utility_decrement_fractures_humerus_y1_alpha <- 1478.150
-  utility_decrement_fractures_humerus_y1_beta <- 0.001
-utility_decrement_fractures_forearm_y1 <- 0.09264
-  utility_decrement_fractures_forearm_y1_alpha <- 177.372
-  utility_decrement_fractures_forearm_y1_beta <- 0.001
-utility_decrement_fractures_vertebral_y2on <- 0.26177
-  utility_decrement_fractures_vertebral_y2on_alpha <- 416.389
-  utility_decrement_fractures_vertebral_y2on_beta <- 0.002
-utility_decrement_fractures_hip_y2on <- 0.11526
-  utility_decrement_fractures_hip_y2on_alpha <- 1358.198
-  utility_decrement_fractures_hip_y2on_beta <- 0.001
-utility_decrement_fractures_humerus_y2on <- 0.00000
-  utility_decrement_fractures_humerus_y2on_alpha <- 0.000
-  utility_decrement_fractures_humerus_y2on_beta <- 0.000
-utility_decrement_fractures_forearm_y2on <- 0.01508
-  utility_decrement_fractures_forearm_y2on_alpha <- 12864.486
-  utility_decrement_fractures_forearm_y2on_beta <- 0.000
   
-# Costs
-# Tocilizumab (TCZ) Costs: 4*162 mg syringe
-cost_TCZ <- 913.12   
-cost_TCZ_PAS <- cost_TCZ * 0.75  # Applying a 25% discount for PAS (adjust as needed)
-
-# Prednisolone (GC) Costs: 30 tablets at 5mg each
-cost_GC_per_week <- 26.7  
-
-# Costs for Adverse Events
-cost_diabetes <- 48.30
-  cost_diabetes_se <- 0.15
-cost_fractures_vertebral <- 1152
-  cost_fractures_vertebral_se <- 0.15
-cost_fractures_hip <- 4222
-  cost_fractures_hip_se <- 0.15
-cost_fractures_forearm <- 690
-  cost_fractures_forearm_se <- 0.15
-cost_fractures_humerus <- 690
-  cost_fractures_humerus_se <- 0.15
-  
-cost_vision_loss_y1 <- 97.55
-  cost_vision_loss_y1_se <- 0.15
-cost_vision_loss_y2on <- 93.97
-  cost_vision_loss_y2on_se <- 0.15
-cost_nonfatal_stroke <- 112.69
-  cost_nonfatal_stroke_se <- 0.15
-  
-# Treatment costs in primary care
-cost_primary_care <- 115.56
-  cost_primary_care_se <- 0.15
-
-# Cost of primary care referral to specialist care
-cost_referral <- 568.88
-  cost_referral_se <- 0.15
-  
-################################################################################
-###### Input parameters used in HTA model #####################################
-###############################################################################
- 
-# GCA-Related Complications at Relapse/Flare
-p_visual_loss <- 0.00025
-p_visual_loss_alpha <- 12
-p_visual_loss_beta <- 900
-p_stroke <- 0.00050
-p_minor_stroke <- 0.0030
-p_major_stroke <- 0.0020
-p_stroke_alpha <- 60
-p_stroke_beta <- 895
-
-# Steroid-Related Adverse Events
-p_fractures_intercept <- -2.6583
-p_fractures_intercept_se <- 0.0849
-p_fractures_slope <- 0.0746
-p_fractures_intercept_se <- 0.0275
-p_diabetes_intercept <- -3.9216
-p_diabetes_intercept_se <- 0.1346
-p_diabetes_slope <- 0.1297
-p_diabetes_intercept_se <- 0.0373

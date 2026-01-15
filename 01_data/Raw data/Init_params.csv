@@ -1,25 +1,21 @@
 Name,Description,Mean,LCI,UCI,SE,Distribution,Source
 c_TCZ,Montly cost of Tociliumab treatment ,913.12,,,91.312,Log normal,
 c_TCZ_PAS,Montly cost of Tociliumab treatment (applying a 25% discount for PAS; adjust as needed),684.84,,,68.484,Log normal,
-c_TCZ_monitoring,Monitoring costs for Tocilizumab treatment group: £3 per blood test; ,3,,,0.3,Log normal,NHS reference cost 2023/24
 c_steroid_control_init_remission,Total cost of steroid treatments for the comparison group (initial remission),36.75,,,3.675,Log normal,BNF accessed 19/09/2025
 c_steroid_treat_init_remission,Total cost of steroid treatments for the treatment group (initial remission),18.66,,,1.866,Log normal,BNF accessed 19/09/2025
 c_steroid_control_relapse,Total cost of steroid treatments for the comparison group (relapse),5.3475,,,0.3573,Log normal,BNF accessed 19/09/2025
 c_steroid_treat_relapse,Total cost of steroid treatments for the treatment group (relapse),2.76,,,0.276,Log normal,BNF accessed 19/09/2025
 c_steroid_control_sub_remission,Total cost of steroid treatments for the comparison group (subsequent remission),18.4425,,,1.66,Log normal,BNF accessed 19/09/2025
 c_steroid_treat_sub_remission,Total cost of steroid treatments for the treatment group (subsequent remission),1.8475,,,0.18475,Log normal,BNF accessed 19/09/2025
-c_steroid_monitoring,Monitoring costs for comparison group,48.27,,,4.827,Log normal,PSSRU
-c_remission_steroid,Cost of the initial remission state and on steroid,257.207255,,,25.7207255,Log normal,TA518
-c_remission_offsteroid,Cost of the initial remission state and off steroid,29.04668138,,,2.904668138,Log normal,TA518
-c_sub_remission_onsteroid,Cost of the subsequent remission state and on steroid,135.0971604,,,13.50971604,Log normal,TA518
-c_relapse,Cost of the relapse state,232.13,,,23.213,Log normal,TA518
+c_steroid_monitoring,Monthly monitoring costs for comparison group (in Year 1 only),93.97,,,9.397,Log normal,PSSRU and NHS reference cost
+c_TCZ_monitoring,Monthly monitoring costs for TCZ group (in Year 1 only),75.4167,,,7.54167,Log normal,NHS reference cost
 q_remission,Utility of the remission state,0.7713,,,0.00667,Beta,TA518
 q_relapse,Utility of the relapse state,0.642,,,0.02446,Beta,TA518
 q_decrement_steroid,Disutility of steroid use,0.03,,,0,Uniform,Niederkohr and Levin 2005
 p_vl,Rate of vision loss,0.01,,,0.087,Beta,Luqmani et al. 2016: 1.3% among TPs and 24% who avoided blindness after steroid use; beta parameters are calculated based on Beta-Bernoulli process of Figure 18 of the TABUL study; SE is calculated using formula of alpha and beta and multiplied by 24%
 c_vl_y1,Annual costs of vision loss in the first year,5980,,,598,Log normal,Colquitt et al. 2008
 c_vl_y2on,Annual costs of vision loss  from year 2 onwards,5761,,,576.1,Log normal,Colquitt et al. 2008
-q_vl,Overall utility value for vision loss,0.375,0.298,0.453,,Beta,Brown et al. 2001
+q_vl,Overall utility value for vision loss,0.375,0.298,0.453,0.039540816,Beta,Brown et al. 2001
 p_stroke,Risk of cerebrovascular disease (stroke) among TPs,0.007,0.004,0.009,0.00127551,Beta,Pujades-Rodrigue et al. 2020
 p_mi,Risk of myocardial infarction,0.006,0.004,0.009,0.00127551,Beta,Pujades-Rodrigue et al. 2021
 p_hf,Risk of heart failure,0.011,0.007,0.014,0.001785714,Beta,Pujades-Rodrigue et al. 2022
@@ -46,5 +42,4 @@ c_dm,Unit cost of diabetes mellitus ,580.261,535.625,613.737,19.92653061,Log nor
 q_dm,Utility of diabetes mellitus ,0.728,,,0.048,Beta,Sullivan et al. 2011
 p_infection,Risk of hospitalised infection,0.034,0.033,0.036,0.000765306,Beta,Wu et al. 2019
 c_infection,Unit cost of infections,2869.89,,,286.989,Log normal,NHS reference cost 2023/24
-q_infection,Utility of infection,0.609,,,,Uniform,Niederkohr et al. 2004 
-p_infection_steroid,Risk of hospitalised infection at one year among steroid users and non-users,0.049,0.048,0.05,0.000510204,Beta,Wu et al. 2019
+q_decrement_infection,Disutility of infection,0.19,,,,Uniform,Niederkohr et al. 2004 

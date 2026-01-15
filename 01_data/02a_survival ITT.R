@@ -161,10 +161,10 @@ calculate_transition_probs <- function(short_term_model, long_term_model) {
   long_monthly_trans_lower <- 1 - (1 - long_yearly_trans_lower)^(1/12)
   long_monthly_trans_upper <- 1 - (1 - long_yearly_trans_upper)^(1/12)
   
-  # PART 3: Combine into full 10-year monthly sequence
+  # PART 3: Combine into full monthly sequence
   
   # Create month sequence
-  all_months <- 1:n_cycles  # 10 years * 12 months
+  all_months <- 1:n_cycles  
   
   # Initialize results
   all_trans_prob <- numeric(n_cycles)
@@ -205,7 +205,7 @@ calculate_transition_probs <- function(short_term_model, long_term_model) {
   return(results)
 }
 
-# Transition probabolities calculation for each scenario
+# Transition probabilities calculation for each scenario
 trans_probs_first_flare_treat_weibull <- calculate_transition_probs(
   weibull_model_treat_within, 
   weibull_model_treat_beyond

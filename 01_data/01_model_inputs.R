@@ -2,24 +2,44 @@
 # Define Model Parameters #
 ############################
 
+#### load packages ####
+library(dplyr)
+library(knitr)
+library(ggplot2)
+library(data.table)
+library (here)
+library(flexsurv)
+library(SurvdigitizeR)
+library(IPDfromKM)
+library(survival)
+library(mixcure)
+library(httpgd)
+library(kableExtra)
+library (future)
+library(doRNG)
+library(doParallel)
+library(darthtools)
+library(survminer)
+library(tm)
+library(ggsurvfit)
+library(zoo)
+library(parallel)
+
 # Intervention arms to compare
 n_arms <- 2
 arms <- c(1, 0)   # 1 = treat (TCZ_plus_GC), 0 = control (GC_alone)
 
 # Time horizon and cycle length
 cycle_length <- 1 
-n_cycles <- 10 * 12  # 10-year lifetime horizon on a monthly basis
-time_horizon_weeks <- 10*52 # 10-year lifetime horizon on a weekly basis
+n_cycles <- 5 * 12  # 5-year lifetime horizon on a monthly basis
+time_horizon_weeks <- 5 * 52 # 5-year lifetime horizon on a weekly basis
 
 # Patient's age 
 initial_age <- 71 # starting age
 v.age <- initial_age + ((1:n_cycles - 1) * cycle_length / 12) # get patients' age in each cycle
 
 # Steroid effects duration
-l.steroid.effect.durations <- c("5y" = 5*12, 
-                                "10y" = 10*12)
-
-steroid_effect_duration_months <- l.steroid.effect.durations["10y"] # base case for 10 years
+steroid_effect_duration_months <- 5*12
 
 # Apply discount rates to costs and utilities
 disc_rate <- 0.035 
@@ -34,8 +54,12 @@ steroid.taper.schedule <- c("Control", "Treatment", "Control_relapse", "Tretment
 # Load input parameter Excel table
 init.parameters <- read.csv(file = "01_data/Raw data/Init_params.csv", stringsAsFactors = F)
 df.params.mean <- data.table(matrix(init.parameters$Mean, nrow = 1))
+df.params.se <- data.table(matrix(init.parameters$SE, nrow = 1))
 names(df.params.mean)<-init.parameters$Name
+names(df.params.se)<-paste0(init.parameters$Name, "_se")
+
 list2env(as.list(df.params.mean), .GlobalEnv)
+list2env(as.list(df.params.se), .GlobalEnv)
 
 # Mortality
 allcause.mort  <- read.csv(file = "01_data/Raw data/All_cause_mortality.csv", stringsAsFactors = F)
@@ -72,6 +96,7 @@ steroid.hr  <- read.csv(file = "01_data/Raw data/Steroid HR.csv", stringsAsFacto
   }
 
 # Function to calculate probabilities for steroid adverse events
+steroid_events <- c("stroke", "mi", "hf", "fractures", "dm", "infection")
 get_steroid_ae_probs_by_state <- function(cycle, state, arm, 
                                           time_in_state = 1,
                                           duration = steroid_effect_duration_months) {
@@ -104,7 +129,6 @@ get_steroid_ae_probs_by_state <- function(cycle, state, arm,
     } else if (state == "Relapse") {
       idx <- 1
     } else if (state == "Subsequent remission") {
-      # Use cycles since entering this state (1st cycle in this state = index 2)
       idx <- min(time_in_state + 1, max_cycle)
     }
     
@@ -149,6 +173,9 @@ get_steroid_ae_probs_by_state <- function(cycle, state, arm,
   return(steroid_ae_probs)
 }
 
+# TCZ monthly costing for first 12 cycles (one year) 
+tcz_months <- 12L # assume one-year TCZ treatment; notice that the monitoring costs for the steroid mono therapy arm is assumed for 12 months as well
+is_on_tcz <- function(cycle) cycle <= tcz_months
 
 # Probability of First Flare
 source("01_data/02b_survival subgroups.R")
@@ -173,4 +200,4 @@ q_decrement_fracture_y1 <- q_remission - q_fracture_y1
 q_decrement_fracture_y2on <- q_remission - q_fracture_y1
 q_decrement_dm <- q_remission - q_dm
 
-  
+

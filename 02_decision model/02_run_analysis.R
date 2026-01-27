@@ -1,7 +1,35 @@
+
+#### load packages ####
+library(dplyr)
+library(knitr)
+library(ggplot2)
+library(data.table)
+library (here)
+library(flexsurv)
+library(SurvdigitizeR)
+library(IPDfromKM)
+library(survival)
+library(mixcure)
+library(httpgd)
+library(kableExtra)
+library (future)
+library(doRNG)
+library(doParallel)
+library(darthtools)
+library(survminer)
+library(tm)
+library(ggsurvfit)
+library(zoo)
+library(parallel)
+library(openxlsx)
+
 #######################################
 # RUN BASELINE ANALYSIS
 #######################################
+rm(list=ls())
 
+source("01_data/01_model_inputs.R")
+source("02_decision model/01_Markov_model.R")
 baseline_results <- run_markov_model(use_baseline = TRUE)
 
 # Print baseline results
@@ -40,15 +68,59 @@ cat(paste("GC alone arm: £", round(total_event_costs[2], 0), "\n"))
 cat(paste("Difference: £", round(total_event_costs[1] - total_event_costs[2], 0), "\n"))
 cat(paste("Cost savings from reduced adverse events: £", round(total_event_costs[2] - total_event_costs[1], 0), "\n"))
 
+#########################
+# SENSITIVITY ANALYSES 
+#########################
+
+# Run sensitivity analysis with Weibull distribution
+sa_results_weibull <- run_markov_model(
+  use_baseline = TRUE,
+  trans_probs_treat = trans_probs_first_flare_treat_weibull,
+  trans_probs_control = trans_probs_first_flare_control_weibull
+)
+
+# Print sensitivity analysis results
+cat("\n=== SENSITIVITY ANALYSIS RESULTS (WEIBULL) ===\n")
+cat(paste("Total cost (Tocilizumab + GC): £", round(sa_results_weibull$total_costs_sum[1], 2), "\n"))
+cat(paste("Total QALYs (Tocilizumab + GC):", round(sa_results_weibull$total_qalys_sum[1], 4), "\n"))
+cat(paste("Total cost (GC alone): £", round(sa_results_weibull$total_costs_sum[2], 2), "\n"))
+cat(paste("Total QALYs (GC alone):", round(sa_results_weibull$total_qalys_sum[2], 4), "\n"))
+cat(paste("Incremental cost: £", round(sa_results_weibull$inc_cost, 2), "\n"))
+cat(paste("Incremental QALYs:", round(sa_results_weibull$inc_qalys, 4), "\n"))
+cat(paste("ICER: £", round(sa_results_weibull$icer, 2), " per QALY\n"))
+
+# Generate and print adverse event summaries
+sa_weibull_ae_summary <- summarize_adverse_events(sa_results_weibull)
+
+cat("\n=== TOTAL INCIDENT EVENTS ===\n")
+print(sa_weibull_ae_summary$total_incident_events, row.names = FALSE)
+
+cat("\n=== EVENT RATES PER 100 PATIENT-YEARS ===\n")
+print(sa_weibull_ae_summary$event_rates_per_100py, row.names = FALSE)
+cat(paste("\nTotal patient-years - TCZ+GC:", round(sa_weibull_ae_summary$total_patient_years[1], 1), 
+          "| GC alone:", round(sa_weibull_ae_summary$total_patient_years[2], 1), "\n"))
+
+cat("\n=== LIFETIME PER-EVENT COST AND QALY IMPACTS ===\n")
+print(sa_weibull_ae_summary$per_event_cost_qaly, row.names = FALSE)
+
+# Calculate total event costs
+total_event_costs <- rowSums(sa_results_weibull$event_costs)
+cat("\n=== TOTAL EVENT COSTS ===\n")
+cat(paste("TCZ + GC arm: £", round(total_event_costs[1], 0), "\n"))
+cat(paste("GC alone arm: £", round(total_event_costs[2], 0), "\n"))
+cat(paste("Difference: £", round(total_event_costs[1] - total_event_costs[2], 0), "\n"))
+cat(paste("Cost savings from reduced adverse events: £", round(total_event_costs[2] - total_event_costs[1], 0), "\n"))
+
 
 #######################################
 # RUN PSA ANALYSIS
 #######################################
 
-n_sim <- 10
+n_sim <- 1000
 set.seed(12345)
 
 # Generate PSA parameters
+source("01_data/01b_model_inputs_psa.R")
 psa_params_all <- generate_psa_params(n_sim = n_sim, seed = 12345)
 
 # Create arrays to store results
@@ -74,7 +146,8 @@ for (sim in 1:n_sim) {
   )
   
   # Run model with these parameters
-  results <- run_markov_model(params = sim_params, use_baseline = FALSE)
+  results <- run_markov_model(params = sim_params, 
+                              use_baseline = FALSE)
   
   # Store results
   psa_total_costs[sim, ] <- results$total_costs_sum
@@ -126,21 +199,32 @@ for (event_idx in 1:7) {
 }
 
 # Cost-effectiveness plane
+png("03_results/CE_Plane_Plot.png", width = 2000, height = 1600, res = 300)
+
+max_x <- max(abs(inc_qalys_psa), na.rm = TRUE)
+max_y <- max(abs(inc_costs_psa), na.rm = TRUE)
+
 plot(inc_qalys_psa, inc_costs_psa, 
      xlab = "Incremental QALYs", 
      ylab = "Incremental Costs (£)",
      main = "Cost-Effectiveness Plane",
-     pch = 20, col = rgb(0, 0, 1, 0.3))
+     pch = 20, col = rgb(0, 0, 1, 0.3), 
+     xlim = c(-max_x, max_x), 
+     ylim = c(-max_y, max_y)) 
 abline(h = 0, v = 0, lty = 2)
 
 wtp_thresholds <- c(20000, 30000)
 for (wtp in wtp_thresholds) {
   abline(a = 0, b = wtp, col = "red", lty = 2)
 }
-legend("topright", legend = c("£20,000/QALY", "£30,000/QALY"), 
+legend("topleft", legend = c("£20,000/QALY", "£30,000/QALY"), 
        col = "red", lty = 2)
 
+dev.off()
+
 # CEAC
+png("03_results/CEAC_Plot.png", width = 2000, height = 1600, res = 300)
+
 wtp_range <- seq(0, 50000, by = 1000)
 prob_ce <- sapply(wtp_range, function(wtp) {
   mean((inc_costs_psa / inc_qalys_psa) <= wtp)
@@ -153,6 +237,8 @@ plot(wtp_range, prob_ce, type = "l", lwd = 2,
 abline(h = 0.5, lty = 2, col = "gray")
 abline(v = c(20000, 30000), lty = 2, col = "red")
 
+dev.off()
+
 # Save results
 psa_output <- data.frame(
   simulation = 1:n_sim,
@@ -164,5 +250,5 @@ psa_output <- data.frame(
   inc_qaly = inc_qalys_psa,
   icer = psa_icer
 )
-write.csv(psa_output, "psa_results.csv", row.names = FALSE)
+write.csv(psa_output, "03_results/psa_results.csv", row.names = FALSE)
 

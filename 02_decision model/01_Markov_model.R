@@ -2,9 +2,14 @@
 # Semi-Markov model with Tunnel States #
 ########################################
 
-run_markov_model <- function(params = NULL, use_baseline = TRUE) {
+run_markov_model <- function(params = NULL, 
+                             use_baseline = TRUE,
+                             trans_probs_treat = trans_probs_first_flare_treat_exp,
+                             trans_probs_control = trans_probs_first_flare_control_exp) {
   # params: named list of parameters to override baseline values
   # use_baseline: if TRUE, use baseline parameter values; if FALSE, must provide params
+  # trans_probs_treat: transition probabilities for treatment arm (defaults to exponential)
+  # trans_probs_control: transition probabilities for control arm (defaults to exponential)
   
   # If params provided, assign them to the environment
   if (!is.null(params)) {
@@ -43,10 +48,24 @@ get_tpm <- function(arm, cycle) {
   
   # Extract cycle-specific flare probabilities
   if (arm == 1) {
-    p_first_flare <- trans_probs_first_flare_treat_weibull$trans_prob[cycle]
+    # Check if we're using sampled probabilities (PSA) or baseline
+    if (is.data.frame(trans_probs_treat)) {
+      # Baseline mode: trans_probs is a data frame
+      p_first_flare <- trans_probs_treat$trans_prob[cycle]
+    } else {
+      # PSA mode: trans_probs is a vector of probabilities for this simulation
+      p_first_flare <- trans_probs_treat[cycle]
+    }
     p_flare <- probs_subseq_flare_treat
   } else {
-    p_first_flare <- trans_probs_first_flare_control_weibull$trans_prob[cycle]
+    # Check if we're using sampled probabilities (PSA) or baseline
+    if (is.data.frame(trans_probs_control)) {
+      # Baseline mode: trans_probs is a data frame
+      p_first_flare <- trans_probs_control$trans_prob[cycle]
+    } else {
+      # PSA mode: trans_probs is a vector of probabilities for this simulation
+      p_first_flare <- trans_probs_control[cycle]
+    }
     p_flare <- probs_subseq_flare_control
   }
   
@@ -443,22 +462,22 @@ for (i in 1:n_arms) {
         # Get year 1 costs and QALY decrements for new cases
         if (event == "vl") {
           cost_y1 <- c_vl_y1/12
-          decrement_y1 <- q_decrement_vl/12
+          decrement_y1 <- (q_remission - q_vl)/12
         } else if (event == "stroke") {
           cost_y1 <- c_stroke_y1/12
-          decrement_y1 <- q_decrement_stroke_y1/12
+          decrement_y1 <- (q_remission - q_stroke_y1)/12
         } else if (event == "mi") {
           cost_y1 <- c_mi_y1/12
-          decrement_y1 <- q_decrement_mi_y1/12      
+          decrement_y1 <- (q_remission - q_mi_y1)/12      
         } else if (event == "hf") {
           cost_y1 <- c_hf_y1/12
-          decrement_y1 <- q_decrement_hf_y1/12      
+          decrement_y1 <- (q_remission - q_hf_y1)/12      
         } else if (event == "fractures") {
           cost_y1 <- c_fracture_y1/12
-          decrement_y1 <- q_decrement_fracture_y1/12 
+          decrement_y1 <- (q_remission - q_fracture_y1)/12 
         } else if (event == "dm") {
           cost_y1 <- c_dm/12
-          decrement_y1 <- q_decrement_dm/12        
+          decrement_y1 <- (q_remission - q_dm)/12        
         } else if (event == "infection") {
           cost_y1 <- c_infection/12
           decrement_y1 <- q_decrement_infection/12  
@@ -490,22 +509,22 @@ for (i in 1:n_arms) {
           # Get year 2+ costs and QALY decrements for existing cases
           if (event == "vl") {
             cost_y2on <- c_vl_y2on/12
-            decrement_y2on <- q_decrement_vl/12
+            decrement_y2on <- (q_remission - q_vl)/12
           } else if (event == "stroke") {
             cost_y2on <- c_stroke_y2on/12
-            decrement_y2on <- q_decrement_stroke_y2on/12  
+            decrement_y2on <- (q_remission - q_stroke_y2on)/12  
           } else if (event == "mi") {
             cost_y2on <- c_mi_y2on/12
-            decrement_y2on <- q_decrement_mi_y2on/12      
+            decrement_y2on <- (q_remission - q_mi_y2on)/12      
           } else if (event == "hf") {
             cost_y2on <- c_hf_y2on/12
-            decrement_y2on <- q_decrement_hf_y2on/12      
+            decrement_y2on <- (q_remission - q_hf_y2on)/12      
           } else if (event == "fractures") {
             cost_y2on <- c_fracture_y2on/12
-            decrement_y2on <- q_decrement_fracture_y2on/12
+            decrement_y2on <- (q_remission - q_fracture_y2on)/12
           } else if (event == "dm") {
             cost_y2on <- c_dm/12
-            decrement_y2on <- q_decrement_dm/12            
+            decrement_y2on <- (q_remission - q_dm)/12            
           } else if (event == "infection") {
             cost_y2on <- 0 # No ongoing cost for infections
             decrement_y2on <- 0  

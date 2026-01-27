@@ -2,29 +2,6 @@
 # Define Model Parameters #
 ############################
 
-#### load packages ####
-library(dplyr)
-library(knitr)
-library(ggplot2)
-library(data.table)
-library (here)
-library(flexsurv)
-library(SurvdigitizeR)
-library(IPDfromKM)
-library(survival)
-library(mixcure)
-library(httpgd)
-library(kableExtra)
-library (future)
-library(doRNG)
-library(doParallel)
-library(darthtools)
-library(survminer)
-library(tm)
-library(ggsurvfit)
-library(zoo)
-library(parallel)
-
 # Intervention arms to compare
 n_arms <- 2
 arms <- c(1, 0)   # 1 = treat (TCZ_plus_GC), 0 = control (GC_alone)
@@ -177,27 +154,15 @@ get_steroid_ae_probs_by_state <- function(cycle, state, arm,
 tcz_months <- 12L # assume one-year TCZ treatment; notice that the monitoring costs for the steroid mono therapy arm is assumed for 12 months as well
 is_on_tcz <- function(cycle) cycle <= tcz_months
 
-# Probability of First Flare
+# Probability of First Flare for each cycle
 source("01_data/02b_survival subgroups.R")
-trans_probs_first_flare_treat_weibull # cycle-specific first flare probabilities for the TCZ arm
-trans_probs_first_flare_control_weibull # cycle-specific first flare probabilities for the control arm
-trans_probs_first_flare_treat_exp # cycle-specific first flare probabilities for the TCZ arm
-trans_probs_first_flare_control_exp # cycle-specific first flare probabilities for the control arm
+trans_probs_first_flare_treat_weibull 
+trans_probs_first_flare_control_weibull 
+trans_probs_first_flare_treat_exp 
+trans_probs_first_flare_control_exp 
 
 # Probability of Relapse/Flare from subsequent remission (Escape) for newly-onset patients following ERG's scenario analysis 6.3.1
 probs_subseq_flare_treat <- 0.0035*(52/12)
 probs_subseq_flare_control <- 0.0076*(52/12)
   
-# Annual utility decrements: need to divide by 12 to get monthly decrements
-q_decrement_vl <- q_remission - q_vl
-q_decrement_stroke_y1 <- q_remission - q_stroke_y1
-q_decrement_stroke_y2on <- q_remission - q_stroke_y1
-q_decrement_mi_y1 <- q_remission - q_mi_y1
-q_decrement_mi_y2on <- q_remission - q_mi_y1
-q_decrement_hf_y1 <- q_remission - q_hf_y1
-q_decrement_hf_y2on <- q_remission - q_hf_y1
-q_decrement_fracture_y1 <- q_remission - q_fracture_y1
-q_decrement_fracture_y2on <- q_remission - q_fracture_y1
-q_decrement_dm <- q_remission - q_dm
-
 

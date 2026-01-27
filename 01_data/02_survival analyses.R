@@ -160,7 +160,7 @@ surv_first_flare_itt_treat_within <- fit.fun(
   mods = c("exp", "weibull", "gamma", "lnorm")
 )
 surv_first_flare_itt_treat_within$AIC # Although exponential has the smallest AIC, Weibull fits better visually.
-weibull_model_treat_within <- surv_first_flare_itt_treat_within$model.objects$models[["Weibull (AFT)"]] # CS's choice
+weibull_model_itt_treat_within <- surv_first_flare_itt_treat_within$model.objects$models[["Weibull (AFT)"]] # CS's choice
 
 surv_first_flare_itt_control_within <- fit.fun(
   time = "time", 
@@ -171,7 +171,7 @@ surv_first_flare_itt_control_within <- fit.fun(
   mods = c("exp", "weibull", "gamma", "lnorm")
 ) 
 surv_first_flare_itt_control_within$AIC # Log-normal (but exponential is the 2nd smallest)
-exp_model_control_within <- surv_first_flare_control_within$model.objects$models[["Exponential"]] # CS's choice 
+exp_model_itt_control_within <- surv_first_flare_itt_control_within$model.objects$models[["Exponential"]] # CS's choice 
 
 surv_first_flare_newlydiag_treat_within <- fit.fun(
   time = "time",
@@ -379,14 +379,32 @@ calculate_transition_probs <- function(short_term_model, long_term_model) {
   return(trans_prob)
 }
 
-# Transition probabolities calculation for each scenario
+# Transition probabilities calculation for each scenario
 trans_probs_first_flare_itt_treat <- calculate_transition_probs(
-  exp_model_itt_treat_within, 
+  weibull_model_itt_treat_within, 
   weibull_model_itt_treat_beyond
 )
 trans_probs_first_flare_itt_control <- calculate_transition_probs(
   exp_model_itt_control_within, 
   weibull_model_itt_control_beyond
+)
+
+trans_probs_first_flare_newlydiag_treat <- calculate_transition_probs(
+  exp_model_newlydiag_treat_within, 
+  weibull_model_newlydiag_treat_beyond
+)
+trans_probs_first_flare_newlydiag_control <- calculate_transition_probs(
+  exp_model_newlydiag_control_within, 
+  weibull_model_newlydiag_control_beyond
+)
+
+trans_probs_first_flare_relapsed_treat <- calculate_transition_probs(
+  exp_model_relapsed_treat_within, 
+  weibull_model_relapsed_treat_beyond
+)
+trans_probs_first_flare_relapsed_control <- calculate_transition_probs(
+  lnorm_model_relapsed_control_within, 
+  weibull_model_relapsed_control_beyond
 )
 
 # Visualization function
@@ -409,8 +427,16 @@ plot_transition_probs <- function(trans_prob_df, title, max_months = 60) {
 
 # Create plots
 plot_transition_probs(trans_probs_first_flare_itt_treat, 
-                      "Treatment - Weibull extrapolation")
+                      "Tocilizumab ITT")
 plot_transition_probs(trans_probs_first_flare_itt_control, 
-                      "Control - Weibull extrapolation")
+                      "Placebo ITT")
+plot_transition_probs(trans_probs_first_flare_newlydiag_treat, 
+                      "Tocilizumab Newly Diagnosed")
+plot_transition_probs(trans_probs_first_flare_newlydiag_control, 
+                      "Placebo Newly Diagnosed")
+plot_transition_probs(trans_probs_first_flare_relapsed_treat, 
+                      "Tocilizumab Relapsed")
+plot_transition_probs(trans_probs_first_flare_relapsed_control, 
+                      "Placebo Relapsed")
 
 

@@ -7,12 +7,12 @@ c_steroid_control_relapse,Total cost of steroid treatments for the comparison gr
 c_steroid_treat_relapse,Total cost of steroid treatments for the treatment group (relapse),2.76,,,0.276,Log normal,BNF accessed 19/09/2025
 c_steroid_control_sub_remission,Total cost of steroid treatments for the comparison group (subsequent remission),18.4425,,,1.66,Log normal,BNF accessed 19/09/2025
 c_steroid_treat_sub_remission,Total cost of steroid treatments for the treatment group (subsequent remission),1.8475,,,0.18475,Log normal,BNF accessed 19/09/2025
-c_steroid_monitoring,Monthly monitoring costs for comparison group (in Year 1 only),93.97,,,9.397,Log normal,PSSRU and NHS reference cost
-c_TCZ_monitoring,Monthly monitoring costs for TCZ group (in Year 1 only),75.4167,,,7.54167,Log normal,NHS reference cost
+c_steroid_monitoring,Monthly monitoring costs for comparison group ,93.97,,,9.397,Log normal,PSSRU and NHS reference cost
+c_TCZ_monitoring,Monthly monitoring costs for TCZ group ,75.4167,,,7.54167,Log normal,NHS reference cost
 q_remission,Utility of the remission state,0.7713,,,0.00667,Beta,TA518
 q_relapse,Utility of the relapse state,0.642,,,0.02446,Beta,TA518
 q_decrement_steroid,Disutility of steroid use,0.03,,,0,Uniform,Niederkohr and Levin 2005
-p_vl,Rate of vision loss,0.01,,,0.087,Beta,Luqmani et al. 2016: 1.3% among TPs and 24% who avoided blindness after steroid use; beta parameters are calculated based on Beta-Bernoulli process of Figure 18 of the TABUL study; SE is calculated using formula of alpha and beta and multiplied by 24%
+p_vl,Rate of vision loss,0.01,,,0.0003,Beta,Luqmani et al. 2016: 1.3% among TPs and 24% who avoided blindness after steroid use; beta parameters are calculated based on Beta-Bernoulli process of Figure 18 of the TABUL study; SE is calculated using formula of alpha and beta and multiplied by 24%
 c_vl_y1,Annual costs of vision loss in the first year,5980,,,598,Log normal,Colquitt et al. 2008
 c_vl_y2on,Annual costs of vision loss  from year 2 onwards,5761,,,576.1,Log normal,Colquitt et al. 2008
 q_vl,Overall utility value for vision loss,0.375,0.298,0.453,0.039540816,Beta,Brown et al. 2001

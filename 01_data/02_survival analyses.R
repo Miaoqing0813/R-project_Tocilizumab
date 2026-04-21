@@ -60,7 +60,7 @@ n_risk_itt_control <- c(51,48,44,41,38,35,32,30,28,25,22,17,15,0)
 n_risk_newlydiag_treat <- c(47,43,42,40,40,40,38,36,35,34,33,33,32,4)
 n_risk_newlydiag_control <- c(23,21,21,19,18,17,16,14,14,13,13,11,10,0)
 n_risk_relapsed_treat <- c(53,50,46,45,45,41,39,38,36,35,34,31,31,1)
-n_risk_relapsed_control <- c(28,27,23,22,20,18,16,16,14,12,9,6,5)
+n_risk_relapsed_control <- c(28,27,23,22,20,18,16,16,14,12,9,6,5,0)
 
 # Preprocess state of the KM curve information 
 pre_first_flare_data_itt_treat <- preprocess(first_flare_data_itt_treat, trisk =weeks, nrisk=n_risk_itt_treat,totalpts = NULL,maxy=100)
@@ -150,12 +150,12 @@ survfit2(Surv(time = time,  event = status)  ~ 1, data = IPD_first_flare_data_re
 summary(survfit(Surv(time, status) ~ 1, data = IPD_first_flare_data_relapsed_control), times = 52)
 
 
-# Fit multiple survival models on within-trial data
+# Fit multiple survival models during treatment period
 surv_first_flare_itt_treat_within <- fit.fun(
   time = "time",
   status = "status",
   data = IPD_first_flare_data_itt_treat,
-  xlow = 0, xhigh = 52,
+  xlow = 0, xhigh = treatment_duration_weeks,
   ylow = 0.75, yhigh = 1,
   mods = c("exp", "weibull", "gamma", "lnorm")
 )
@@ -166,7 +166,7 @@ surv_first_flare_itt_control_within <- fit.fun(
   time = "time", 
   status = "status", 
   data = IPD_first_flare_data_itt_control,
-  xlow = 0, xhigh = 52,
+  xlow = 0, xhigh = treatment_duration_weeks,
   ylow = 0.30, yhigh = 1,
   mods = c("exp", "weibull", "gamma", "lnorm")
 ) 
@@ -177,7 +177,7 @@ surv_first_flare_newlydiag_treat_within <- fit.fun(
   time = "time",
   status = "status",
   data = IPD_first_flare_data_newlydiag_treat,
-  xlow = 0, xhigh = 52,
+  xlow = 0, xhigh = treatment_duration_weeks,
   ylow = 0.70, yhigh = 1,
   mods = c("exp", "weibull", "gamma", "lnorm")
 )
@@ -188,7 +188,7 @@ surv_first_flare_newlydiag_control_within <- fit.fun(
   time = "time", 
   status = "status", 
   data = IPD_first_flare_data_newlydiag_control,
-  xlow = 0, xhigh = 52,
+  xlow = 0, xhigh = treatment_duration_weeks,
   ylow = 0.40, yhigh = 1,
   mods = c("exp", "weibull", "gamma", "lnorm")
 ) 
@@ -199,7 +199,7 @@ surv_first_flare_relapsed_treat_within <- fit.fun(
   time = "time",
   status = "status",
   data = IPD_first_flare_data_relapsed_treat,
-  xlow = 0, xhigh = 52,
+  xlow = 0, xhigh = treatment_duration_weeks,
   ylow = 0.75, yhigh = 1,
   mods = c("exp", "weibull", "gamma", "lnorm")
 )
@@ -210,7 +210,7 @@ surv_first_flare_relapsed_control_within <- fit.fun(
   time = "time", 
   status = "status", 
   data = IPD_first_flare_data_relapsed_control,
-  xlow = 0, xhigh = 52,
+  xlow = 0, xhigh = treatment_duration_weeks,
   ylow = 0.30, yhigh = 1,
   mods = c("exp", "weibull", "gamma", "lnorm")
 ) 
@@ -226,7 +226,7 @@ surv_first_flare_itt_treat_beyond <- fit.fun(
   times = seq(0, time_horizon_weeks, by = 52), 
   xlow = 0, xhigh = time_horizon_weeks,
   ylow = 0, yhigh = 1,
-  mods = c("exp", "weibull")
+  mods = c("exp", "weibull", "gamma", "lnorm")
 )
 weibull_model_itt_treat_beyond <- surv_first_flare_itt_treat_beyond$model.objects$models[["Weibull (AFT)"]]
 
@@ -238,7 +238,7 @@ surv_first_flare_itt_control_beyond <- fit.fun(
   times = seq(0, time_horizon_weeks, by = 52),
   xlow = 0, xhigh = time_horizon_weeks,
   ylow = 0, yhigh = 1,
-  mods = c("exp", "weibull")
+  mods = c("exp", "weibull", "gamma", "lnorm")
 )
 weibull_model_itt_control_beyond <- surv_first_flare_itt_control_beyond$model.objects$models[["Weibull (AFT)"]]
 
@@ -250,7 +250,7 @@ surv_first_flare_newlydiag_treat_beyond <- fit.fun(
   times = seq(0, time_horizon_weeks, by = 52), 
   xlow = 0, xhigh = time_horizon_weeks,
   ylow = 0, yhigh = 1,
-  mods = c("exp", "weibull")
+  mods = c("exp", "weibull", "gamma", "lnorm")
 )
 weibull_model_newlydiag_treat_beyond <- surv_first_flare_newlydiag_treat_beyond$model.objects$models[["Weibull (AFT)"]]
 
@@ -262,7 +262,7 @@ surv_first_flare_newlydiag_control_beyond <- fit.fun(
   times = seq(0, time_horizon_weeks, by = 52),
   xlow = 0, xhigh = time_horizon_weeks,
   ylow = 0, yhigh = 1,
-  mods = c("exp", "weibull")
+  mods = c("exp", "weibull", "gamma", "lnorm")
 )
 weibull_model_newlydiag_control_beyond <- surv_first_flare_newlydiag_control_beyond$model.objects$models[["Weibull (AFT)"]]
 
@@ -274,7 +274,7 @@ surv_first_flare_relapsed_treat_beyond <- fit.fun(
   times = seq(0, time_horizon_weeks, by = 52), 
   xlow = 0, xhigh = time_horizon_weeks,
   ylow = 0, yhigh = 1,
-  mods = c("exp", "weibull", "lnorm")
+  mods = c("exp", "weibull", "gamma", "lnorm")
 )
 weibull_model_relapsed_treat_beyond <- surv_first_flare_relapsed_treat_beyond$model.objects$models[["Weibull (AFT)"]]
 
@@ -286,15 +286,15 @@ surv_first_flare_relapsed_control_beyond <- fit.fun(
   times = seq(0, time_horizon_weeks, by = 52),
   xlow = 0, xhigh = time_horizon_weeks,
   ylow = 0, yhigh = 1,
-  mods = c("exp", "weibull", "lnorm")
+  mods = c("exp", "weibull", "gamma", "lnorm")
 )
 weibull_model_relapsed_control_beyond <- surv_first_flare_relapsed_control_beyond$model.objects$models[["Weibull (AFT)"]]
 
-# Function to calculate monthly transition probabilities 
+# Function to calculate monthly transition probabilities
 calculate_transition_probs <- function(short_term_model, long_term_model) {
   
   # Short-term monthly probabilities (0 to treatment duration)
-  monthly_timepoints <- seq(0, 52, by = 52/12)
+  monthly_timepoints <- seq(0, treatment_duration_weeks, by = 52/12)
   
   # Get short-term survival probabilities
   short_surv_summary <- summary(short_term_model, type = "survival", t = monthly_timepoints, ci = TRUE)[[1]]
@@ -310,7 +310,7 @@ calculate_transition_probs <- function(short_term_model, long_term_model) {
   short_trans_prob_upper <- 1 - (short_surv_lower[-1] / short_surv_lower[-length(short_surv_lower)])
   
   # 2. Long-term yearly probabilities converted to monthly (beyond treatment duration)
-  yearly_timepoints <- seq(104, time_horizon_weeks, by = 52) # Years 2-10
+  yearly_timepoints <- seq(treatment_duration_weeks+52, time_horizon_weeks, by = 52) 
   
   # Get long-term survival probabilities
   long_surv_summary <- summary(long_term_model, type = "survival", t = yearly_timepoints, ci = TRUE)[[1]]
@@ -319,16 +319,16 @@ calculate_transition_probs <- function(short_term_model, long_term_model) {
   long_surv_upper <- long_surv_summary$ucl
   
   # Add baseline from end of short-term period
-  end_short_surv <- c(short_surv_est[length(short_surv_est)], long_surv_est)
-  end_short_lower <- c(short_surv_lower[length(short_surv_lower)], long_surv_lower)
-  end_short_upper <- c(short_surv_upper[length(short_surv_upper)], long_surv_upper)
+  endshort_long_surv_est <- c(short_surv_est[length(short_surv_est)], long_surv_est)
+  endshort_long_surv_lower <- c(short_surv_lower[length(short_surv_lower)], long_surv_lower)
+  endshort_long_surv_upper <- c(short_surv_upper[length(short_surv_upper)], long_surv_upper)
   
   # Calculate yearly transition probabilities for long-term
-  n_long_years <- length(end_short_surv) - 1  
+  n_long_years <- length(endshort_long_surv_est) - 1  
   
-  long_yearly_trans_est <- 1 - (end_short_surv[-1] / end_short_surv[-length(end_short_surv)])
-  long_yearly_trans_lower <- 1 - (end_short_upper[-1] / end_short_upper[-length(end_short_upper)])
-  long_yearly_trans_upper <- 1 - (end_short_lower[-1] / end_short_lower[-length(end_short_lower)])
+  long_yearly_trans_est <- 1 - (endshort_long_surv_est[-1] / endshort_long_surv_est[-length(endshort_long_surv_est)])
+  long_yearly_trans_lower <- 1 - (endshort_long_surv_lower[-1] / endshort_long_surv_lower[-length(endshort_long_surv_lower)])
+  long_yearly_trans_upper <- 1 - (endshort_long_surv_upper[-1] / endshort_long_surv_upper[-length(endshort_long_surv_upper)])
   
   # Convert yearly to monthly equivalents
   long_monthly_trans_est <- 1 - (1 - long_yearly_trans_est)^(1/12)

@@ -38,12 +38,12 @@ calc_se_from_ci <- function(lower, upper) {
 }
 
 # Function to sample transition probabilities from survival analyses
-sample_trans_probs <- function(trans_prob_df, n_sim) {
+sample_trans_probs <- function(trans_prob_df, n_sim, time_horizon_months = 5*12) {
   
   # Pre-allocate matrix for sampled probabilities
-  sampled_probs <- matrix(NA, nrow = n_sim, ncol = n_cycles)
+  sampled_probs <- matrix(NA, nrow = n_sim, ncol = time_horizon_months)
   
-  for (cycle in 1:n_cycles) {
+  for (cycle in 1:time_horizon_months) {
     mean_prob <- trans_prob_df$trans_prob[cycle]
     lower_prob <- trans_prob_df$trans_prob_lower[cycle]
     upper_prob <- trans_prob_df$trans_prob_upper[cycle]
@@ -79,7 +79,7 @@ sample_trans_probs <- function(trans_prob_df, n_sim) {
 }
 
 
-generate_psa_params <- function(n_sim = 10, seed=12345) {
+generate_psa_params <- function(n_sim = 10, seed=12345, time_horizon_months = 5*12) {
   
   set.seed(seed)
   
@@ -181,31 +181,17 @@ generate_psa_params <- function(n_sim = 10, seed=12345) {
     l_params_psa_vectors[[vec]] <- vec_psa
   }
   
-  # Sample transition probabilities from survival analysis
-  # Treatment arm - Weibull
-  trans_probs_first_flare_treat_weibull_df <- get("trans_probs_first_flare_treat_weibull", 
+  # Treatment arm 
+  trans_probs_first_flare_treat_df <- get("trans_probs_first_flare_treat", 
                                                   envir = parent.frame())
-  l_params_psa_vectors[["trans_probs_first_flare_treat_weibull"]] <- 
-    sample_trans_probs(trans_probs_first_flare_treat_weibull_df, n_sim)
+  l_params_psa_vectors[["trans_probs_first_flare_treat"]] <- 
+    sample_trans_probs(trans_probs_first_flare_treat_df, n_sim, time_horizon_months = time_horizon_months)
   
-  # Control arm - Weibull
-  trans_probs_first_flare_control_weibull_df <- get("trans_probs_first_flare_control_weibull", 
+  # Control arm 
+  trans_probs_first_flare_control_df <- get("trans_probs_first_flare_control", 
                                                     envir = parent.frame())
-  l_params_psa_vectors[["trans_probs_first_flare_control_weibull"]] <- 
-    sample_trans_probs(trans_probs_first_flare_control_weibull_df, n_sim)
-  
-  # Treatment arm - Exponential
-  trans_probs_first_flare_treat_exp_df <- get("trans_probs_first_flare_treat_exp", 
-                                              envir = parent.frame())
-  l_params_psa_vectors[["trans_probs_first_flare_treat_exp"]] <- 
-    sample_trans_probs(trans_probs_first_flare_treat_exp_df, n_sim)
-  
-  # Control arm - Exponential
-  trans_probs_first_flare_control_exp_df <- get("trans_probs_first_flare_control_exp", 
-                                                envir = parent.frame())
-  l_params_psa_vectors[["trans_probs_first_flare_control_exp"]] <- 
-    sample_trans_probs(trans_probs_first_flare_control_exp_df, n_sim)
-  
+  l_params_psa_vectors[["trans_probs_first_flare_control"]] <- 
+    sample_trans_probs(trans_probs_first_flare_control_df, n_sim, time_horizon_months = time_horizon_months)
   
   # Return both scalar and vector parameters as a list
   return(list(

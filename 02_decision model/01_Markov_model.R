@@ -317,11 +317,15 @@ run_markov_model <- function(params = NULL,
       # Process Initial remission state
       if (pop["Initial remission", j, i] > 1e-10) {
         state_pop <- pop["Initial remission", j, i]
-         
+        
+        # State costs and utilities - Initialize with defaults
+        state_cost <- 0
+        state_utility <- q_remission  # Default: remission with no steroid penalty
+        
         # State costs and utilities
         if (i == 1) {  # Treatment arm
           if (cycle_num <= treatment_duration_months) { # TCZ monthly cost during treatment duration only
-            state_cost <- c_TCZ + c_TCZ_monitoring
+            state_cost <- state_cost + c_TCZ + c_TCZ_monitoring
           }
           if (cycle_num <= 6) {  # On steroids for 6 months in treatment arm
             state_utility <- q_remission - q_decrement_steroid
@@ -331,8 +335,8 @@ run_markov_model <- function(params = NULL,
           }
         } else {  # Control arm
           if (cycle_num <= 12) {  # On steroids for 12 months in control arm
-            state_cost <- c_steroid_monitoring
-            state_utility <- state_utility - q_decrement_steroid
+            state_cost <- state_cost + c_steroid_monitoring
+            state_utility <- q_remission - q_decrement_steroid
             if (cycle_num == 1) {
               state_cost <- state_cost + c_steroid_control_init_remission 
             }
@@ -586,7 +590,7 @@ run_markov_model <- function(params = NULL,
               apply_discount(existing_cumulative * decrement_y2on, disc_rate, t_years)
             
             # Per-event tracking
-            idx <- matchidx <- match(event, all_events)
+            idx <- match(event, all_events)
             event_costs_by_event[idx, i, cycle_num] <- event_costs_by_event[idx, i, cycle_num] +
               apply_discount(existing_cumulative * cost_y2on, disc_rate, t_years)
             event_qalys_by_event[idx, i, cycle_num] <- event_qalys_by_event[idx, i, cycle_num] -
@@ -624,7 +628,7 @@ run_markov_model <- function(params = NULL,
   total_qalys_sum <- rowSums(total_qalys)
   inc_cost  <- total_costs_sum[1] - total_costs_sum[2]
   inc_qalys <- total_qalys_sum[1] - total_qalys_sum[2]
-  icer <- inc_cost / inc_qalys
+  icer <- if (abs(inc_qalys) < 1e-10) NA else (inc_cost / inc_qalys)
   
   # Return all results as a list
   return(list(

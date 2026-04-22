@@ -10,7 +10,7 @@ source("02_decision model/01_Markov_model.R")
 # Deterministic CEA results 
 ############################
 
-subgroup = "itt"  # Options: "newlydiag", "relapsed", "itt""
+subgroup = "itt"  # Options: "newlydiag", "relapsed", "itt"
 treatment_duration_months <- 12
 treatment_duration_weeks <- 52
 time_horizon_months <- 5*12
@@ -268,7 +268,6 @@ for (i in 1:nrow(scenarios)) {
   # Calculate total event costs
   total_event_costs <- rowSums(markov_results$event_costs)
   
-  # Store results
   # Store results
   scenario_results[[scenarios$scenario_name[i]]] <- list(
     markov_results = markov_results,

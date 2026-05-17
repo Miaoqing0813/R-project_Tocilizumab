@@ -52,6 +52,14 @@ run_markov_model <- function(params = NULL,
   v.age <- initial_age + ((1: time_horizon_months - 1) / 12) 
   v.allcause.mort.monthly <- get_monthly_mort(v.age, v.allcause.mort)
   
+  # Convert annual probabilities into monthly probabilities
+  annual_probs <- c("p_vl", "p_stroke", "p_mi", "p_hf", "p_fractures", "p_infection", "p_dm") 
+  
+  for (prob in annual_probs) {
+    monthly_prob <- 1 - exp(-(-log(1 - get(prob))) / 12)
+    assign(paste0(prob, "_monthly"), monthly_prob)
+  }
+  
   # Function to calculate probabilities for steroid adverse events
   get_steroid_ae_probs_by_state <- function(cycle, state, arm, 
                                             time_in_state = 1,
@@ -70,12 +78,12 @@ run_markov_model <- function(params = NULL,
     if (cycle > duration) {
       # steroid effect has worn off
       steroid_ae_probs <- list(
-        stroke     = p_stroke,
-        mi         = p_mi,
-        hf         = p_hf,
-        dm         = p_dm,
-        infection  = p_infection,
-        fractures  = p_fractures,
+        stroke     = p_stroke_monthly,
+        mi         = p_mi_monthly,
+        hf         = p_hf_monthly,
+        dm         = p_dm_monthly,
+        infection  = p_infection_monthly,
+        fractures  = p_fractures_monthly,
         mortality  = v.allcause.mort.monthly[cycle]
       )
       
@@ -116,12 +124,12 @@ run_markov_model <- function(params = NULL,
       }
       
       steroid_ae_probs <- list(
-        stroke     = p_stroke    * cvd_hr,
-        mi         = p_mi        * cvd_hr,
-        hf         = p_hf        * cvd_hr,
-        dm         = p_dm        * dm_hr,
-        infection  = p_infection * infection_hr,
-        fractures  = p_fractures * fractures_hr,
+        stroke     = p_stroke_monthly    * cvd_hr,
+        mi         = p_mi_monthly        * cvd_hr,
+        hf         = p_hf_monthly        * cvd_hr,
+        dm         = p_dm_monthly        * dm_hr,
+        infection  = p_infection_monthly * infection_hr,
+        fractures  = p_fractures_monthly * fractures_hr,
         mortality  = v.allcause.mort.monthly[cycle] * mortality_hr
       )
     }
@@ -318,25 +326,24 @@ run_markov_model <- function(params = NULL,
       if (pop["Initial remission", j, i] > 1e-10) {
         state_pop <- pop["Initial remission", j, i]
         
-        # State costs and utilities - Initialize with defaults
-        state_cost <- 0
-        state_utility <- q_remission  # Default: remission with no steroid penalty
-        
         # State costs and utilities
+        state_cost <- 0
+        state_utility <- q_remission/12  
+        
         if (i == 1) {  # Treatment arm
           if (cycle_num <= treatment_duration_months) { # TCZ monthly cost during treatment duration only
             state_cost <- state_cost + c_TCZ + c_TCZ_monitoring
           }
           if (cycle_num <= 6) {  # On steroids for 6 months in treatment arm
-            state_utility <- q_remission - q_decrement_steroid
+            state_utility <- (q_remission - q_decrement_steroid)/12
             if (cycle_num == 1) {
               state_cost <- state_cost + c_steroid_treat_init_remission 
             }
           }
         } else {  # Control arm
-          if (cycle_num <= 12) {  # On steroids for 12 months in control arm
+          if (cycle_num <= 13) {  # On steroids for about 13 months 
             state_cost <- state_cost + c_steroid_monitoring
-            state_utility <- q_remission - q_decrement_steroid
+            state_utility <- (q_remission - q_decrement_steroid)/12
             if (cycle_num == 1) {
               state_cost <- state_cost + c_steroid_control_init_remission 
             }
@@ -345,9 +352,9 @@ run_markov_model <- function(params = NULL,
         
         # Apply discounting and add to cycle totals
         cycle_costs[i, cycle_num] <- cycle_costs[i, cycle_num] + 
-          apply_discount(state_pop * state_cost, disc_rate, t_years)
+          apply_discount(state_pop * state_cost, disc_rate, current_year)
         cycle_qalys[i, cycle_num] <- cycle_qalys[i, cycle_num] + 
-          apply_discount(state_pop * state_utility, disc_rate, t_years)
+          apply_discount(state_pop * state_utility, disc_rate, current_year)
         
         # Steroid-related adverse events
         steroid_ae_probs <- get_steroid_ae_probs_by_state(
@@ -375,28 +382,28 @@ run_markov_model <- function(params = NULL,
       # Process Relapse state
       if (pop["Relapse", j, i] > 1e-10) {
         state_pop <- pop["Relapse", j, i]
-         
+        
         # State costs and utilities
-        state_utility <- q_relapse - q_decrement_steroid
+        state_utility <- (q_relapse - q_decrement_steroid)/12
         
         if (i == 1) {  # Treatment arm
           if (cycle_num <= treatment_duration_months) { # TCZ monthly cost during treatment duration only
             state_cost <- c_TCZ + c_TCZ_monitoring + c_steroid_control_relapse
           } else { # after treatment duration, assume patients in treatment arm have same costs as control arm in relapse state
-          state_cost <- c_steroid_control_relapse + c_steroid_monitoring
+            state_cost <- c_steroid_control_relapse + c_steroid_monitoring
           }
-          } else {  # Control arm
+        } else {  # Control arm
           state_cost <- c_steroid_control_relapse + c_steroid_monitoring
-          }
+        }
         
         # Apply discounting and add to cycle totals
         cycle_costs[i, cycle_num] <- cycle_costs[i, cycle_num] +
-          apply_discount(state_pop * state_cost, disc_rate, t_years)
+          apply_discount(state_pop * state_cost, disc_rate, current_year)
         cycle_qalys[i, cycle_num] <- cycle_qalys[i, cycle_num] +
-          apply_discount(state_pop * state_utility, disc_rate, t_years)
+          apply_discount(state_pop * state_utility, disc_rate, current_year)
         
         # GCA-related complications (Vision Loss): only occur in relapse state
-        n_vl_incident <- pop["Relapse", j-1, i] * p_vl
+        n_vl_incident <- pop["Relapse", j-1, i] * p_vl_monthly
         # Update the incident event log by adding to the existing count for this cycle
         event_log$vl[i, cycle_num] <- event_log$vl[i, cycle_num] + n_vl_incident
         
@@ -432,7 +439,7 @@ run_markov_model <- function(params = NULL,
           # State costs and utilities
           # Both arms: steroid tapering applies for first 10 tunnel states (11-month schedule minus 1 relapse cycle)
           if (tunnel_idx <= 10) {
-            state_utility <- q_remission - q_decrement_steroid
+            state_utility <- (q_remission - q_decrement_steroid)/12
             
             if (i == 1) {  # Treatment arm
               if (cycle_num <= treatment_duration_months) {
@@ -451,7 +458,7 @@ run_markov_model <- function(params = NULL,
             
           } else {
             # Beyond steroid tapering period: no steroid costs or utility decrement
-            state_utility <- q_remission
+            state_utility <- q_remission/12
             
             if (i == 1 && cycle_num <= treatment_duration_months) {
               # Still on TCZ even after steroid tapering ends
@@ -460,12 +467,12 @@ run_markov_model <- function(params = NULL,
               state_cost <- 0
             }
           }
-            
+          
           # Apply discounting and add to cycle totals
           cycle_costs[i, cycle_num] <- cycle_costs[i, cycle_num] + 
-            apply_discount(state_pop * state_cost, disc_rate, t_years)
+            apply_discount(state_pop * state_cost, disc_rate, current_year)
           cycle_qalys[i, cycle_num] <- cycle_qalys[i, cycle_num] + 
-            apply_discount(state_pop * state_utility, disc_rate, t_years)
+            apply_discount(state_pop * state_utility, disc_rate, current_year)
           
           # Steroid-related adverse events
           steroid_ae_probs <- get_steroid_ae_probs_by_state(
@@ -503,99 +510,118 @@ run_markov_model <- function(params = NULL,
       }
       
       # Apply costs and utility impacts for all adverse events
+      get_event_params <- function(event) {
+        params <- switch(event,
+                         "vl" = list(
+                           cost_y1 = c_vl_y1 / 12,
+                           cost_y2on = c_vl_y2on / 12,
+                           decrement_y1 = (q_remission - q_vl) / 12,
+                           decrement_y2on = (q_remission - q_vl) / 12
+                         ),
+                         "stroke" = list(
+                           cost_y1 = c_stroke_y1 / 12,
+                           cost_y2on = c_stroke_y2on / 12,
+                           decrement_y1 = (q_remission - q_stroke_y1) / 12,
+                           decrement_y2on = (q_remission - q_stroke_y2on) / 12
+                         ),
+                         "mi" = list(
+                           cost_y1 = c_mi_y1 / 12,
+                           cost_y2on = c_mi_y2on / 12,
+                           decrement_y1 = (q_remission - q_mi_y1) / 12,
+                           decrement_y2on = (q_remission - q_mi_y2on) / 12
+                         ),
+                         "hf" = list(
+                           cost_y1 = c_hf_y1 / 12,
+                           cost_y2on = c_hf_y2on / 12,
+                           decrement_y1 = (q_remission - q_hf_y1) / 12,
+                           decrement_y2on = (q_remission - q_hf_y2on) / 12
+                         ),
+                         "fractures" = list(
+                           cost_y1 = c_fracture_y1 / 12,
+                           cost_y2on = c_fracture_y2on / 12,
+                           decrement_y1 = (q_remission - q_fracture_y1) / 12,
+                           decrement_y2on = (q_remission - q_fracture_y2on) / 12
+                         ),
+                         "dm" = list(
+                           cost_y1 = c_dm / 12,
+                           cost_y2on = c_dm / 12,
+                           decrement_y1 = (q_remission - q_dm) / 12,
+                           decrement_y2on = (q_remission - q_dm) / 12
+                         ),
+                         "infection" = list(
+                           cost_y1 = c_infection / 12,
+                           cost_y2on = 0,  # No ongoing cost
+                           decrement_y1 = q_decrement_infection / 12,
+                           decrement_y2on = 0  # No ongoing utility decrement
+                         ),
+                         list(cost_y1 = 0, cost_y2on = 0, decrement_y1 = 0, decrement_y2on = 0)
+        )
+        return(params)
+      }
+      
+      # Apply costs and utility impacts for all adverse events
       for (event in all_events) {
         
-        # YEAR 1: incident cases this cycle 
+        # NEW CASES - YEAR 1: Apply year 1 difference for first 12 months
         if (event_log[[event]][i, cycle_num] > 1e-10) {
           new_cases <- event_log[[event]][i, cycle_num]
           
-          # Get year 1 costs and QALY decrements for new cases
-          if (event == "vl") {
-            cost_y1 <- c_vl_y1/12
-            decrement_y1 <- (q_remission - q_vl)/12
-          } else if (event == "stroke") {
-            cost_y1 <- c_stroke_y1/12
-            decrement_y1 <- (q_remission - q_stroke_y1)/12
-          } else if (event == "mi") {
-            cost_y1 <- c_mi_y1/12
-            decrement_y1 <- (q_remission - q_mi_y1)/12      
-          } else if (event == "hf") {
-            cost_y1 <- c_hf_y1/12
-            decrement_y1 <- (q_remission - q_hf_y1)/12      
-          } else if (event == "fractures") {
-            cost_y1 <- c_fracture_y1/12
-            decrement_y1 <- (q_remission - q_fracture_y1)/12 
-          } else if (event == "dm") {
-            cost_y1 <- c_dm/12
-            decrement_y1 <- (q_remission - q_dm)/12        
-          } else if (event == "infection") {
-            cost_y1 <- c_infection/12
-            decrement_y1 <- q_decrement_infection/12  
-          } else {
-            cost_y1 <- 0
-            decrement_y1 <- 0
+          event_params <- get_event_params(event)
+          
+          # Apply the DIFFERENCE between year 1 and year 2+ for 12 months
+          cost_y1_diff <- event_params$cost_y1 - event_params$cost_y2on
+          decrement_y1_diff <- event_params$decrement_y1 - event_params$decrement_y2on
+          
+          # Apply difference for 12 months starting this cycle
+          for (month_in_year1 in 0:11) {
+            if (cycle_num + month_in_year1 <= time_horizon_months) {
+              future_cycle <- cycle_num + month_in_year1
+              
+              discounted_cost <- apply_discount(new_cases * cost_y1_diff, 
+                                                disc_rate, 
+                                                floor(future_cycle/12) + 1)
+              discounted_qaly <- apply_discount(new_cases * decrement_y1_diff, 
+                                                disc_rate, 
+                                                floor(future_cycle/12) + 1)
+              
+              event_costs[i, future_cycle] <- event_costs[i, future_cycle] + discounted_cost 
+                
+              
+              event_qalys[i, future_cycle] <- event_qalys[i, future_cycle] - discounted_qaly 
+              
+              # Per-event tracking - same values
+              idx <- match(event, all_events)
+              event_costs_by_event[idx, i, future_cycle] <- 
+                event_costs_by_event[idx, i, future_cycle] + discounted_cost
+              event_qalys_by_event[idx, i, future_cycle] <- 
+                event_qalys_by_event[idx, i, future_cycle] - discounted_qaly
+                
+            }
           }
-          
-          # Apply year 1 costs and utilities to new cases
-          event_costs[i, cycle_num] <- event_costs[i, cycle_num] + 
-            apply_discount(new_cases * cost_y1, disc_rate, t_years)
-          event_qalys[i, cycle_num] <- event_qalys[i, cycle_num] - 
-            apply_discount(new_cases * decrement_y1, disc_rate, t_years)
-          
-          # Per-event tracking
-          idx <- match(event, all_events)
-          event_costs_by_event[idx, i, cycle_num] <- event_costs_by_event[idx, i, cycle_num] +
-            apply_discount(new_cases * cost_y1, disc_rate, t_years)
-          event_qalys_by_event[idx, i, cycle_num] <- event_qalys_by_event[idx, i, cycle_num] -
-            apply_discount(new_cases * decrement_y1, disc_rate, t_years)
         }
         
-        # YEARS 2 ONWARDS: Apply year 2+ costs/utilities to all existing cases from previous cycles
-        if (cycle_num > 1) {
-          # Get the cumulative population up to the end of the previous cycle
-          existing_cumulative <- cumulative_populations[[event]][i, j-1]
+        # ALL EXISTING CASES - YEAR 2+: Apply year 2+ baseline costs every cycle
+        existing_cumulative <- cumulative_populations[[event]][i, j-1]
+        
+        if (existing_cumulative > 1e-10) {
+          event_params <- get_event_params(event)
           
-          if (existing_cumulative > 1e-10) {
-            # Get year 2+ costs and QALY decrements for existing cases
-            if (event == "vl") {
-              cost_y2on <- c_vl_y2on/12
-              decrement_y2on <- (q_remission - q_vl)/12
-            } else if (event == "stroke") {
-              cost_y2on <- c_stroke_y2on/12
-              decrement_y2on <- (q_remission - q_stroke_y2on)/12  
-            } else if (event == "mi") {
-              cost_y2on <- c_mi_y2on/12
-              decrement_y2on <- (q_remission - q_mi_y2on)/12      
-            } else if (event == "hf") {
-              cost_y2on <- c_hf_y2on/12
-              decrement_y2on <- (q_remission - q_hf_y2on)/12      
-            } else if (event == "fractures") {
-              cost_y2on <- c_fracture_y2on/12
-              decrement_y2on <- (q_remission - q_fracture_y2on)/12
-            } else if (event == "dm") {
-              cost_y2on <- c_dm/12
-              decrement_y2on <- (q_remission - q_dm)/12            
-            } else if (event == "infection") {
-              cost_y2on <- 0 # No ongoing cost for infections
-              decrement_y2on <- 0  
-            } else {
-              cost_y2on <- 0
-              decrement_y2on <- 0
-            }
-            
-            # Apply year 2+ costs and utilities to existing cases
-            event_costs[i, cycle_num] <- event_costs[i, cycle_num] + 
-              apply_discount(existing_cumulative * cost_y2on, disc_rate, t_years)
-            event_qalys[i, cycle_num] <- event_qalys[i, cycle_num] - 
-              apply_discount(existing_cumulative * decrement_y2on, disc_rate, t_years)
-            
-            # Per-event tracking
-            idx <- match(event, all_events)
-            event_costs_by_event[idx, i, cycle_num] <- event_costs_by_event[idx, i, cycle_num] +
-              apply_discount(existing_cumulative * cost_y2on, disc_rate, t_years)
-            event_qalys_by_event[idx, i, cycle_num] <- event_qalys_by_event[idx, i, cycle_num] -
-              apply_discount(existing_cumulative * decrement_y2on, disc_rate, t_years)
-          }
+          # Apply year 2+ costs/utilities to all existing cases (monthly basis)
+          discounted_cost <- apply_discount(existing_cumulative * event_params$cost_y2on, 
+                                            disc_rate, current_year)
+          discounted_qaly <- apply_discount(existing_cumulative * event_params$decrement_y2on, 
+                                            disc_rate, current_year)
+          
+          event_costs[i, cycle_num] <- event_costs[i, cycle_num] + discounted_cost
+          event_qalys[i, cycle_num] <- event_qalys[i, cycle_num] - discounted_qaly
+          
+          # Per-event tracking - same values
+          idx <- match(event, all_events)
+          event_costs_by_event[idx, i, cycle_num] <- 
+            event_costs_by_event[idx, i, cycle_num] + discounted_cost
+          event_qalys_by_event[idx, i, cycle_num] <- 
+            event_qalys_by_event[idx, i, cycle_num] - discounted_qaly
+  
         }
       }
       

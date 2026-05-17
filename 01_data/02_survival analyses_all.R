@@ -413,7 +413,7 @@ calculate_transition_probs <- function(short_term_model, long_term_model,
 #'
 #' @return ggplot object
 
-plot_transition_probs <- function(trans_prob_df, title="Transition probabilities", max_months = 60) {
+plot_transition_probs <- function(trans_prob_df, title="Transition probabilities", max_months = time_horizon_months) {
   df_subset <- trans_prob_df[1:min(max_months, nrow(trans_prob_df)), ]
   
   ggplot2::ggplot(df_subset, ggplot2::aes(x = month, y = trans_prob)) +

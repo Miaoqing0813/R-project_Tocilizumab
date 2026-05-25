@@ -99,8 +99,10 @@ generate_psa_params <- function(n_sim = 10, seed=12345, time_horizon_months = 5*
                     "q_hf_y2on", "q_fracture_y1", "q_fracture_y2on", "q_dm")
   
   # List of all probability variable names (beta distribution)
-  prob_vars <- c("p_vl", "p_stroke", "p_mi", "p_hf", "p_fractures", 
-                 "p_dm", "p_infection")
+  prob_vars <- c("p_vl", "p_stroke", "p_mi", "p_hf", "p_fractures", "p_dm", "p_infection", 
+                 "probs_subseq_flare_newlydiag_control", "probs_subseq_flare_newlydiag_treat",
+                 "probs_subseq_flare_relapsed_control", "probs_subseq_flare_relapsed_treat", 
+                 "probs_subseq_flare_itt_control", "probs_subseq_flare_itt_treat")
   
   # Get vector variable names
   all_vars_env <- ls(pattern = "^v\\.steroid\\.hr\\.", envir = parent.frame())

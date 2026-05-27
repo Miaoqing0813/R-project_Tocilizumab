@@ -69,7 +69,7 @@ run_markov_model <- function(params = NULL,
     if (state == "Initial remission") {
       schedule_index <- ifelse(arm == 1, "treat", "control")  
     } else if (state %in% c("Relapse","Subsequent remission")) {
-      schedule_index <- "control.relapse" # both treatment groups use 11-month tapering schedule
+      schedule_index <- ifelse(arm == 1, "treat.relapse", "control.relapse")
     }
     
     max_cycle <- nrow(steroid.hr)
@@ -252,6 +252,56 @@ run_markov_model <- function(params = NULL,
     return(tpm)
   }
   
+  # Apply costs and utility impacts for all adverse events
+  get_event_params <- function(event) {
+    params <- switch(event,
+                     "vl" = list(
+                       cost_y1 = c_vl_y1 / 12,
+                       cost_y2on = c_vl_y2on / 12,
+                       decrement_y1 = (q_remission - q_vl) / 12,
+                       decrement_y2on = (q_remission - q_vl) / 12
+                     ),
+                     "stroke" = list(
+                       cost_y1 = c_stroke_y1 / 12,
+                       cost_y2on = c_stroke_y2on / 12,
+                       decrement_y1 = (q_remission - q_stroke_y1) / 12,
+                       decrement_y2on = (q_remission - q_stroke_y2on) / 12
+                     ),
+                     "mi" = list(
+                       cost_y1 = c_mi_y1 / 12,
+                       cost_y2on = c_mi_y2on / 12,
+                       decrement_y1 = (q_remission - q_mi_y1) / 12,
+                       decrement_y2on = (q_remission - q_mi_y2on) / 12
+                     ),
+                     "hf" = list(
+                       cost_y1 = c_hf_y1 / 12,
+                       cost_y2on = c_hf_y2on / 12,
+                       decrement_y1 = (q_remission - q_hf_y1) / 12,
+                       decrement_y2on = (q_remission - q_hf_y2on) / 12
+                     ),
+                     "fractures" = list(
+                       cost_y1 = c_fracture_y1 / 12,
+                       cost_y2on = c_fracture_y2on / 12,
+                       decrement_y1 = (q_remission - q_fracture_y1) / 12,
+                       decrement_y2on = (q_remission - q_fracture_y2on) / 12
+                     ),
+                     "dm" = list(
+                       cost_y1 = c_dm / 12,
+                       cost_y2on = c_dm / 12,
+                       decrement_y1 = (q_remission - q_dm) / 12,
+                       decrement_y2on = (q_remission - q_dm) / 12
+                     ),
+                     "infection" = list(
+                       cost_y1 = c_infection / 12,
+                       cost_y2on = 0,  # No ongoing cost
+                       decrement_y1 = q_decrement_infection / 12,
+                       decrement_y2on = 0  # No ongoing utility decrement
+                     ),
+                     list(cost_y1 = 0, cost_y2on = 0, decrement_y1 = 0, decrement_y2on = 0)
+    )
+    return(params)
+  }
+  
   # Initialize population arrays for tracking state populations
   pop <- array(0, 
                dim = c(n_states, time_horizon_months + 1, n_arms),
@@ -307,6 +357,7 @@ run_markov_model <- function(params = NULL,
     dimnames = list(event = all_events, arm = arms, cycle = NULL)
   )
   
+  
   # Running the model 
   for (i in 1:n_arms) {
     for (j in 2:(time_horizon_months + 1)) {
@@ -319,7 +370,7 @@ run_markov_model <- function(params = NULL,
       pop[, j, i] <- pop[, j-1, i] %*% tpm
       
       # Calculate costs and utilities for this cycle
-      t_years <- cycle_num / 12
+      t_years <- (cycle_num - 1 ) / 12
       current_year <- floor(t_years) + 1
       
       # Process Initial remission state
@@ -327,26 +378,28 @@ run_markov_model <- function(params = NULL,
         state_pop <- pop["Initial remission", j, i]
         
         # State costs and utilities
-        state_cost <- 0
-        state_utility <- q_remission/12  
-        
-        if (i == 1) {  # Treatment arm
+         if (i == 1) {  # Treatment arm
+           
           if (cycle_num <= treatment_duration_months) { # TCZ monthly cost during treatment duration only
-            state_cost <- state_cost + c_TCZ + c_TCZ_monitoring
+            state_cost <- ifelse(cycle_num == 1, c_steroid_treat_init_remission, 0) + c_TCZ + c_TCZ_monitoring
+          } else {
+            state_cost <- 0
           }
+           
           if (cycle_num <= 6) {  # On steroids for 6 months in treatment arm
             state_utility <- (q_remission - q_decrement_steroid)/12
-            if (cycle_num == 1) {
-              state_cost <- state_cost + c_steroid_treat_init_remission 
-            }
+          } else {
+            state_utility <- q_remission/12
           }
+           
         } else {  # Control arm
+          
           if (cycle_num <= 13) {  # On steroids for about 13 months 
-            state_cost <- state_cost + c_steroid_monitoring
+            state_cost <- ifelse(cycle_num == 1, c_steroid_control_init_remission, 0) + c_steroid_monitoring
             state_utility <- (q_remission - q_decrement_steroid)/12
-            if (cycle_num == 1) {
-              state_cost <- state_cost + c_steroid_control_init_remission 
-            }
+          } else {
+            state_cost <- 0
+            state_utility <- q_remission/12
           }
         }
         
@@ -387,11 +440,7 @@ run_markov_model <- function(params = NULL,
         state_utility <- (q_relapse - q_decrement_steroid)/12
         
         if (i == 1) {  # Treatment arm
-          if (cycle_num <= treatment_duration_months) { # TCZ monthly cost during treatment duration only
-            state_cost <- c_TCZ + c_TCZ_monitoring + c_steroid_control_relapse
-          } else { # after treatment duration, assume patients in treatment arm have same costs as control arm in relapse state
-            state_cost <- c_steroid_control_relapse + c_steroid_monitoring
-          }
+          state_cost <- c_steroid_treat_relapse + c_steroid_monitoring
         } else {  # Control arm
           state_cost <- c_steroid_control_relapse + c_steroid_monitoring
         }
@@ -437,33 +486,25 @@ run_markov_model <- function(params = NULL,
           state_pop <- pop[tunnel_state, j, i]
           
           # State costs and utilities
-          # Both arms: steroid tapering applies for first 10 tunnel states (11-month schedule minus 1 relapse cycle)
-          if (tunnel_idx <= 10) {
-            state_utility <- (q_remission - q_decrement_steroid)/12
+          if (i == 1) {  # Treatment arm
             
-            if (i == 1) {  # Treatment arm
-              if (cycle_num <= treatment_duration_months) {
-                # Still on TCZ: include TCZ cost + monitoring + sub-remission steroid cost
-                state_cost <- c_TCZ + c_TCZ_monitoring + 
-                  ifelse(tunnel_idx == 1, c_steroid_control_sub_remission, 0)
-              } else {
-                # Off TCZ: same steroid costs as control arm
-                state_cost <- c_steroid_monitoring + 
-                  ifelse(tunnel_idx == 1, c_steroid_control_sub_remission, 0)
-              }
-            } else {  # Control arm
+            if (tunnel_idx <= 7) {  # steroid tapering applies for first 7 tunnel states (8-month schedule minus 1 relapse cycle) 
+              state_utility <- (q_remission - q_decrement_steroid)/12
               state_cost <- c_steroid_monitoring + 
-                ifelse(tunnel_idx == 1, c_steroid_control_sub_remission, 0)
+                ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0)
+            } else {
+              state_utility <- q_remission/12
+              state_cost <- 0
             }
             
-          } else {
-            # Beyond steroid tapering period: no steroid costs or utility decrement
-            state_utility <- q_remission/12
+          } else {  # Control arm
             
-            if (i == 1 && cycle_num <= treatment_duration_months) {
-              # Still on TCZ even after steroid tapering ends
-              state_cost <- c_TCZ + c_TCZ_monitoring
+            if (tunnel_idx <= 10) {  # steroid tapering applies for first 10 tunnel states (11-month schedule minus 1 relapse cycle)
+              state_utility <- (q_remission - q_decrement_steroid)/12
+              state_cost <- c_steroid_monitoring + 
+                ifelse(tunnel_idx == 1, c_steroid_control_sub_remission, 0)
             } else {
+              state_utility <- q_remission/12
               state_cost <- 0
             }
           }
@@ -510,56 +551,6 @@ run_markov_model <- function(params = NULL,
       }
       
       # Apply costs and utility impacts for all adverse events
-      get_event_params <- function(event) {
-        params <- switch(event,
-                         "vl" = list(
-                           cost_y1 = c_vl_y1 / 12,
-                           cost_y2on = c_vl_y2on / 12,
-                           decrement_y1 = (q_remission - q_vl) / 12,
-                           decrement_y2on = (q_remission - q_vl) / 12
-                         ),
-                         "stroke" = list(
-                           cost_y1 = c_stroke_y1 / 12,
-                           cost_y2on = c_stroke_y2on / 12,
-                           decrement_y1 = (q_remission - q_stroke_y1) / 12,
-                           decrement_y2on = (q_remission - q_stroke_y2on) / 12
-                         ),
-                         "mi" = list(
-                           cost_y1 = c_mi_y1 / 12,
-                           cost_y2on = c_mi_y2on / 12,
-                           decrement_y1 = (q_remission - q_mi_y1) / 12,
-                           decrement_y2on = (q_remission - q_mi_y2on) / 12
-                         ),
-                         "hf" = list(
-                           cost_y1 = c_hf_y1 / 12,
-                           cost_y2on = c_hf_y2on / 12,
-                           decrement_y1 = (q_remission - q_hf_y1) / 12,
-                           decrement_y2on = (q_remission - q_hf_y2on) / 12
-                         ),
-                         "fractures" = list(
-                           cost_y1 = c_fracture_y1 / 12,
-                           cost_y2on = c_fracture_y2on / 12,
-                           decrement_y1 = (q_remission - q_fracture_y1) / 12,
-                           decrement_y2on = (q_remission - q_fracture_y2on) / 12
-                         ),
-                         "dm" = list(
-                           cost_y1 = c_dm / 12,
-                           cost_y2on = c_dm / 12,
-                           decrement_y1 = (q_remission - q_dm) / 12,
-                           decrement_y2on = (q_remission - q_dm) / 12
-                         ),
-                         "infection" = list(
-                           cost_y1 = c_infection / 12,
-                           cost_y2on = 0,  # No ongoing cost
-                           decrement_y1 = q_decrement_infection / 12,
-                           decrement_y2on = 0  # No ongoing utility decrement
-                         ),
-                         list(cost_y1 = 0, cost_y2on = 0, decrement_y1 = 0, decrement_y2on = 0)
-        )
-        return(params)
-      }
-      
-      # Apply costs and utility impacts for all adverse events
       for (event in all_events) {
         
         # NEW CASES - YEAR 1: Apply year 1 difference for first 12 months
@@ -579,13 +570,13 @@ run_markov_model <- function(params = NULL,
               
               discounted_cost <- apply_discount(new_cases * cost_y1_diff, 
                                                 disc_rate, 
-                                                floor(future_cycle/12) + 1)
+                                                floor((future_cycle - 1)/12) + 1)
               discounted_qaly <- apply_discount(new_cases * decrement_y1_diff, 
                                                 disc_rate, 
-                                                floor(future_cycle/12) + 1)
+                                                floor((future_cycle - 1)/12) + 1)
               
               event_costs[i, future_cycle] <- event_costs[i, future_cycle] + discounted_cost 
-                
+              
               
               event_qalys[i, future_cycle] <- event_qalys[i, future_cycle] - discounted_qaly 
               
@@ -595,7 +586,7 @@ run_markov_model <- function(params = NULL,
                 event_costs_by_event[idx, i, future_cycle] + discounted_cost
               event_qalys_by_event[idx, i, future_cycle] <- 
                 event_qalys_by_event[idx, i, future_cycle] - discounted_qaly
-                
+              
             }
           }
         }
@@ -621,7 +612,7 @@ run_markov_model <- function(params = NULL,
             event_costs_by_event[idx, i, cycle_num] + discounted_cost
           event_qalys_by_event[idx, i, cycle_num] <- 
             event_qalys_by_event[idx, i, cycle_num] - discounted_qaly
-  
+          
         }
       }
       

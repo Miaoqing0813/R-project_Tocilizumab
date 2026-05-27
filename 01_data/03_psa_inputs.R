@@ -84,11 +84,7 @@ generate_psa_params <- function(n_sim = 10, seed=12345, time_horizon_months = 5*
   set.seed(seed)
   
   # List of all cost variable names (log-normal distribution)
-  cost_vars <- c("c_TCZ", "c_TCZ_PAS", "c_steroid_control_init_remission", 
-                 "c_steroid_treat_init_remission", "c_steroid_control_relapse", 
-                 "c_steroid_treat_relapse", "c_steroid_control_sub_remission", 
-                 "c_steroid_treat_sub_remission", "c_steroid_monitoring", 
-                 "c_TCZ_monitoring",
+  cost_vars <- c("c_steroid_monitoring", "c_TCZ_monitoring",
                  "c_vl_y1", "c_vl_y2on", "c_stroke_y1", "c_mi_y1", "c_hf_y1",
                  "c_stroke_y2on", "c_mi_y2on", "c_hf_y2on", "c_fracture_y1",
                  "c_fracture_y2on", "c_bp", "c_dm", "c_infection")

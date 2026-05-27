@@ -13,13 +13,13 @@ source("02_decision model/01_Markov_model.R")
 subgroup = "itt"  # Options: "newlydiag", "relapsed", "itt"
 treatment_duration_months <- 12
 treatment_duration_weeks <- 52
-time_horizon_months <- 5*12
-time_horizon_weeks <- 5*52
-steroid_effect_duration_months <- 5*12
-dist_beyond <- "exp"
+time_horizon_months <- 30*12
+time_horizon_weeks <- 30*52
+steroid_effect_duration_months <- 30*12
+dist_beyond <- "weibull"
 
 # Transition probabilities to first flare 
-surv_results_itt <- generate_first_flare_transition_probs(
+surv_results <- generate_first_flare_transition_probs(
   subgroup = subgroup,
   treatment_duration_weeks = treatment_duration_weeks,
   time_horizon_weeks = time_horizon_weeks,
@@ -29,10 +29,10 @@ surv_results_itt <- generate_first_flare_transition_probs(
   verbose = TRUE
 )
 
-print(surv_results_itt$trans_prob_treat_plot)
-print(surv_results_itt$trans_prob_control_plot)
-trans_probs_first_flare_treat <- surv_results_itt$trans_probs_treat
-trans_probs_first_flare_control <- surv_results_itt$trans_probs_control
+print(surv_results$trans_prob_treat_plot)
+print(surv_results$trans_prob_control_plot)
+trans_probs_first_flare_treat <- surv_results$trans_probs_treat
+trans_probs_first_flare_control <- surv_results$trans_probs_control
 
 baseline_results <- run_markov_model(use_baseline = TRUE, 
                                      subgroup = subgroup,

@@ -32,11 +32,6 @@ generate_first_flare_transition_probs <- function(
   # Validate inputs
   subgroup <- match.arg(subgroup)
   
-  if (!treatment_duration_weeks %in% c(52, 104)) {
-    warning("Treatment duration is typically 52 or 104 weeks. Proceeding with user-specified value: ", 
-            treatment_duration_weeks)
-  }
-  
   if (verbose) {
     cat("\n=== Starting Survival Analysis ===\n")
     cat("Subgroup:", subgroup, "\n")
@@ -138,7 +133,7 @@ generate_first_flare_transition_probs <- function(
                                 dist = "exp"),
     weibull = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
                                     data = IPD_first_flare_data_treat, 
-                                    dist = "weibull"),
+                                    dist = "weibull"), 
     gamma = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
                                   data = IPD_first_flare_data_treat, 
                                   dist = "gamma"),
@@ -190,10 +185,7 @@ generate_first_flare_transition_probs <- function(
                                 dist = "exp"),
     weibull = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
                                     data = IPD_first_flare_data_treat, 
-                                    dist = "weibull"),
-    lnorm = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
-                                  data = IPD_first_flare_data_treat, 
-                                  dist = "lnorm")
+                                    dist = "weibull")
   )
   
   models_control_beyond <- list(
@@ -202,10 +194,7 @@ generate_first_flare_transition_probs <- function(
                                 dist = "exp"),
     weibull = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
                                     data = IPD_first_flare_data_control, 
-                                    dist = "weibull"),
-    lnorm = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
-                                  data = IPD_first_flare_data_control, 
-                                  dist = "lnorm")
+                                    dist = "weibull")
   )
   
   # Choose distributions for extrapolation 
@@ -262,6 +251,29 @@ generate_first_flare_transition_probs <- function(
       ggsurvfit::add_confidence_interval() +
       ggsurvfit::add_risktable()
     
+    # Fitted survival curves plots
+    surv_first_flare_treat_beyond_plot <- fit.fun(
+      time = "time",
+      status = "status",
+      data = IPD_first_flare_data_treat,
+      extrapolate = TRUE,
+      times = seq(0, time_horizon_weeks, by = 52), 
+      xlow = 0, xhigh = time_horizon_weeks,
+      ylow = 0, yhigh = 1,
+      mods = c("exp", "weibull")
+    )
+    
+    surv_first_flare_control_beyond_plot <- fit.fun(
+      time = "time",
+      status = "status",
+      data = IPD_first_flare_data_control,
+      extrapolate = TRUE,
+      times = seq(0, time_horizon_weeks, by = 52), 
+      xlow = 0, xhigh = time_horizon_weeks,
+      ylow = 0, yhigh = 1,
+      mods = c("exp", "weibull")
+    )
+    
     # Transition probability plots
     trans_prob_treat_plot <- plot_transition_probs(
       trans_probs_treat,
@@ -299,6 +311,8 @@ generate_first_flare_transition_probs <- function(
     ),
     km_treat_plot = km_treat_plot, 
     km_control_plot = km_control_plot, 
+    surv_first_flare_treat_beyond_plot = surv_first_flare_treat_beyond_plot,
+    surv_first_flare_control_beyond_plot = surv_first_flare_control_beyond_plot,
     trans_prob_treat_plot = trans_prob_treat_plot, 
     trans_prob_control_plot = trans_prob_control_plot
   ))
@@ -340,9 +354,9 @@ calculate_transition_probs <- function(short_term_model, long_term_model,
   
   # Get long-term survival probabilities
   long_surv_summary <- summary(long_term_model, type = "survival", t = yearly_timepoints, ci = TRUE)[[1]]
-  long_surv_est <- long_surv_summary$est
-  long_surv_lower <- long_surv_summary$lcl
-  long_surv_upper <- long_surv_summary$ucl
+  long_surv_est <- pmax(long_surv_summary$est, 1e-6)
+  long_surv_lower <- pmax(long_surv_summary$lcl, 1e-6)
+  long_surv_upper <- pmax(long_surv_summary$ucl, 1e-6)
   
   # Add baseline from end of short-term period
   endshort_long_surv_est <- c(short_surv_est[length(short_surv_est)], long_surv_est)

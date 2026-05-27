@@ -90,14 +90,12 @@ annual_rate_subseq_flare_newlydiag_control_se <- 0.319   # Standard error of the
   # Convert them into monthly probability and standard error: p_monthly = 1 - exp(-rate_annual / 12)
   probs_subseq_flare_newlydiag_control <- 1 - exp(-annual_rate_subseq_flare_newlydiag_control / 12)
   probs_subseq_flare_newlydiag_control_se <- (1 / 12) * exp(-annual_rate_subseq_flare_newlydiag_control / 12) * annual_rate_subseq_flare_newlydiag_control_se
-  cat(sprintf("Monthly Probability (control): %.4f (SE: %.4f)\n", probs_subseq_flare_newlydiag_control, probs_subseq_flare_newlydiag_control_se))
-
+  
 annual_rate_subseq_flare_newlydiag_treat  <- 0.400 * (exp(-1.68821)/exp(-0.91629))   # Annual risk estimate
 annual_rate_subseq_flare_newlydiag_treat_se <- 0.319 * (exp(-1.68821)/exp(-0.91629))  # Standard error of the annual risk, calculated from IQR 0.21-0.64
   # Convert them into monthly probability and standard error: p_monthly = 1 - exp(-rate_annual / 12)
   probs_subseq_flare_newlydiag_treat <- 1 - exp(-annual_rate_subseq_flare_newlydiag_treat / 12)
   probs_subseq_flare_newlydiag_treat_se <- (1 / 12) * exp(-annual_rate_subseq_flare_newlydiag_treat / 12) * annual_rate_subseq_flare_newlydiag_treat_se
-  cat(sprintf("Monthly Probability (treat): %.4f (SE: %.4f)\n", probs_subseq_flare_newlydiag_treat, probs_subseq_flare_newlydiag_treat_se))
   
 # Relapsed patients
 annual_rate_subseq_flare_relapsed_control  <- 0.400 * (exp(-0.37136)/exp(-0.91629))   # Annual risk estimate
@@ -105,14 +103,12 @@ annual_rate_subseq_flare_relapsed_control_se <- 0.319 * (exp(-0.37136)/exp(-0.91
   # Convert them into monthly probability and standard error: p_monthly = 1 - exp(-rate_annual / 12)
   probs_subseq_flare_relapsed_control <- 1 - exp(-annual_rate_subseq_flare_relapsed_control / 12)
   probs_subseq_flare_relapsed_control_se <- (1 / 12) * exp(-annual_rate_subseq_flare_relapsed_control / 12) * annual_rate_subseq_flare_relapsed_control_se
-  cat(sprintf("Monthly Probability (control): %.4f (SE: %.4f)\n", probs_subseq_flare_relapsed_control, probs_subseq_flare_relapsed_control_se))
   
 annual_rate_subseq_flare_relapsed_treat  <- 0.400 * (exp(-1.68821)/exp(-0.91629)) * (exp(-0.37136)/exp(-0.91629))   # Annual risk estimate
 annual_rate_subseq_flare_relapsed_treat_se <- 0.319 * (exp(-1.68821)/exp(-0.91629)) * (exp(-0.37136)/exp(-0.91629))  # Standard error of the annual risk, calculated from IQR 0.21-0.64
   # Convert them into monthly probability and standard error: p_monthly = 1 - exp(-rate_annual / 12)
   probs_subseq_flare_relapsed_treat <- 1 - exp(-annual_rate_subseq_flare_relapsed_treat / 12)
   probs_subseq_flare_relapsed_treat_se <- (1 / 12) * exp(-annual_rate_subseq_flare_relapsed_treat / 12) * annual_rate_subseq_flare_relapsed_treat_se
-  cat(sprintf("Monthly Probability (treat): %.4f (SE: %.4f)\n", probs_subseq_flare_relapsed_treat, probs_subseq_flare_relapsed_treat_se))
   
 # ITT (Intent-to-Treat) population
 annual_rate_subseq_flare_itt_control  <- 0.400 * exp(-1.36928)/exp(-1.68821)   # Annual risk estimate
@@ -120,12 +116,10 @@ annual_rate_subseq_flare_itt_control_se <- 0.319 * exp(-1.36928)/exp(-1.68821)  
   # Convert them into monthly probability and standard error: p_monthly = 1 - exp(-rate_annual / 12)
   probs_subseq_flare_itt_control <- 1 - exp(-annual_rate_subseq_flare_itt_control / 12)
   probs_subseq_flare_itt_control_se <- (1 / 12) * exp(-annual_rate_subseq_flare_itt_control / 12) * annual_rate_subseq_flare_itt_control_se
-  cat(sprintf("Monthly Probability (control): %.4f (SE: %.4f)\n", probs_subseq_flare_itt_control, probs_subseq_flare_itt_control_se))
   
 annual_rate_subseq_flare_itt_treat  <- 0.400 * (exp(-1.68821)/exp(-0.91629)) * exp(-1.36928)/exp(-1.68821)   # Annual risk estimate
 annual_rate_subseq_flare_itt_treat_se <- 0.319 * (exp(-1.68821)/exp(-0.91629)) * exp(-1.36928)/exp(-1.68821)  # Standard error of the annual risk, calculated from IQR 0.21-0.64
   # Convert them into monthly probability and standard error: p_monthly = 1 - exp(-rate_annual / 12)
   probs_subseq_flare_itt_treat <- 1 - exp(-annual_rate_subseq_flare_itt_treat / 12)
   probs_subseq_flare_itt_treat_se <- (1 / 12) * exp(-annual_rate_subseq_flare_itt_treat / 12) * annual_rate_subseq_flare_itt_treat_se
-  cat(sprintf("Monthly Probability (treat): %.4f (SE: %.4f)\n", probs_subseq_flare_itt_treat, probs_subseq_flare_itt_treat_se))
   

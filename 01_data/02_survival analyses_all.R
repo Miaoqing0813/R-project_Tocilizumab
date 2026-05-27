@@ -354,9 +354,9 @@ calculate_transition_probs <- function(short_term_model, long_term_model,
   
   # Get long-term survival probabilities
   long_surv_summary <- summary(long_term_model, type = "survival", t = yearly_timepoints, ci = TRUE)[[1]]
-  long_surv_est <- pmax(long_surv_summary$est, 1e-6)
-  long_surv_lower <- pmax(long_surv_summary$lcl, 1e-6)
-  long_surv_upper <- pmax(long_surv_summary$ucl, 1e-6)
+  long_surv_est <- pmax(long_surv_summary$est, 0.001)
+  long_surv_lower <- pmax(long_surv_summary$lcl, 0.001)
+  long_surv_upper <- pmax(long_surv_summary$ucl, 0.001)
   
   # Add baseline from end of short-term period
   endshort_long_surv_est <- c(short_surv_est[length(short_surv_est)], long_surv_est)
@@ -369,6 +369,11 @@ calculate_transition_probs <- function(short_term_model, long_term_model,
   long_yearly_trans_est <- 1 - (endshort_long_surv_est[-1] / endshort_long_surv_est[-length(endshort_long_surv_est)])
   long_yearly_trans_lower <- 1 - (endshort_long_surv_lower[-1] / endshort_long_surv_lower[-length(endshort_long_surv_lower)])
   long_yearly_trans_upper <- 1 - (endshort_long_surv_upper[-1] / endshort_long_surv_upper[-length(endshort_long_surv_upper)])
+  
+  # Ensure transition probabilities are valid (0 to 1)
+  long_yearly_trans_est <- pmax(0, pmin(1, long_yearly_trans_est))
+  long_yearly_trans_lower <- pmax(0, pmin(1, long_yearly_trans_lower))
+  long_yearly_trans_upper <- pmax(0, pmin(1, long_yearly_trans_upper))
   
   # Convert yearly to monthly equivalents
   long_monthly_trans_est <- 1 - (1 - long_yearly_trans_est)^(1/12)

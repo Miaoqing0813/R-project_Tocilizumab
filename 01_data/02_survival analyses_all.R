@@ -126,8 +126,8 @@ generate_first_flare_transition_probs <- function(
   # Step 4: Fit survival models - WITHIN treatment period
   if (verbose) cat("Step 4: Fitting survival models (within treatment period)...\n")
   
-  # Fit multiple models for treatment arm (within period)
-  models_treat_within <- list(
+  # Fit multiple survival models with different distributions
+  survival_models_treat <- list(
     exp = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
                                 data = IPD_first_flare_data_treat, 
                                 dist = "exp"),
@@ -142,8 +142,7 @@ generate_first_flare_transition_probs <- function(
                                   dist = "lnorm")
   )
   
-  # Fit multiple models for control arm (within period)
-  models_control_within <- list(
+  survival_models_control <- list(
     exp = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
                                 data = IPD_first_flare_data_control, 
                                 dist = "exp"),
@@ -158,7 +157,7 @@ generate_first_flare_transition_probs <- function(
                                   dist = "lnorm")
   )
   
-  # Select best-fitting models based on subgroup (based on original HTA choices)
+  # Select best-fitting models based on subgroup during the treatment period (based on original HTA choices)
   model_selection <- list(
     itt = list(treat_within = "weibull", control_within = "exp"),
     newlydiag = list(treat_within = "exp", control_within = "exp"),
@@ -167,8 +166,8 @@ generate_first_flare_transition_probs <- function(
   
   selected_models <- model_selection[[subgroup]]
   
-  model_treat_within <- models_treat_within[[selected_models$treat_within]]
-  model_control_within <- models_control_within[[selected_models$control_within]]
+  model_treat_within <- survival_models_treat[[selected_models$treat_within]]
+  model_control_within <- survival_models_control[[selected_models$control_within]]
   
   if (verbose) {
     cat("  Treatment arm (within): Using", selected_models$treat_within, "\n")
@@ -178,28 +177,9 @@ generate_first_flare_transition_probs <- function(
   # Step 5: Fit survival models - BEYOND treatment period
   if (verbose) cat("Step 5: Fitting survival models (beyond treatment period)...\n")
   
-  # Fit models for extrapolation (beyond treatment period)
-  models_treat_beyond <- list(
-    exp = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
-                                data = IPD_first_flare_data_treat, 
-                                dist = "exp"),
-    weibull = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
-                                    data = IPD_first_flare_data_treat, 
-                                    dist = "weibull")
-  )
-  
-  models_control_beyond <- list(
-    exp = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
-                                data = IPD_first_flare_data_control, 
-                                dist = "exp"),
-    weibull = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
-                                    data = IPD_first_flare_data_control, 
-                                    dist = "weibull")
-  )
-  
   # Choose distributions for extrapolation 
-  model_treat_beyond <- models_treat_beyond[[dist_beyond]]
-  model_control_beyond <- models_control_beyond[[dist_beyond]]
+  model_treat_beyond <- survival_models_treat[[dist_beyond]]
+  model_control_beyond <- survival_models_control[[dist_beyond]]
   
   if (verbose) {
     cat("  Both arms (beyond): Using", dist_beyond, "\n")

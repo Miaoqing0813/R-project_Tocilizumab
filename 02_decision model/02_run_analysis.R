@@ -16,7 +16,7 @@ treatment_duration_weeks <- 52
 time_horizon_months <- 30*12
 time_horizon_weeks <- 30*52
 steroid_effect_duration_months <- 30*12
-dist_beyond <- "weibull"
+dist_beyond <- "exp"
 
 # Transition probabilities to first flare 
 surv_results <- generate_first_flare_transition_probs(
@@ -31,6 +31,7 @@ surv_results <- generate_first_flare_transition_probs(
 
 print(surv_results$trans_prob_treat_plot)
 print(surv_results$trans_prob_control_plot)
+summary(surv_results$models$control_beyond, type = "survival", t = 260, ci = TRUE)[[1]] # 5-year survival for the comparison group
 trans_probs_first_flare_treat <- surv_results$trans_probs_treat
 trans_probs_first_flare_control <- surv_results$trans_probs_control
 
@@ -189,7 +190,7 @@ plot(inc_qalys_psa, inc_costs_psa,
      ylim = c(-max_y, max_y)) 
 abline(h = 0, v = 0, lty = 2)
 
-wtp_thresholds <- c(20000, 30000)
+wtp_thresholds <- c(25000, 35000)
 for (wtp in wtp_thresholds) {
   abline(a = 0, b = wtp, col = "red", lty = 2)
 }
@@ -211,7 +212,7 @@ plot(wtp_range, prob_ce, type = "l", lwd = 2,
      ylab = "Probability Cost-Effective",
      main = "Cost-Effectiveness Acceptability Curve")
 abline(h = 0.5, lty = 2, col = "gray")
-abline(v = c(20000, 30000), lty = 2, col = "red")
+abline(v = c(25000, 35000), lty = 2, col = "red")
 
 dev.off()
 

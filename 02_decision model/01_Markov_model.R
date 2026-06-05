@@ -6,10 +6,10 @@ run_markov_model <- function(params = NULL,
                              use_baseline = TRUE,
                              subgroup = "itt",
                              initial_age = 71,
-                             time_horizon_months = 5*12,
-                             time_horizon_weeks = 5*52, 
+                             time_horizon_months = 30*12,
+                             time_horizon_weeks = 30*52, 
                              treatment_duration_months = 12,
-                             steroid_effect_duration_months = 5*12) {
+                             steroid_effect_duration_months = 30*12) {
   
   # params: named list of parameters to override baseline values
   # use_baseline: if TRUE, use baseline parameter values; if FALSE, must provide params

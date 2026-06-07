@@ -111,11 +111,11 @@ cl <- makeCluster(n_cores)
 # This automatically makes all functions and variables available
 clusterCall(cl, function() {
   source("01_data/01_model_inputs.R")
+  source("02_decision model/01_Markov_model.R")
 })
 
 # Now you only need to export the iteration-specific data
-clusterExport(cl, c("run_markov_model", "summarize_adverse_events",
-                    "psa_params_all", 
+clusterExport(cl, c("psa_params_all", 
                     "subgroup", 
                     "time_horizon_weeks", 
                     "time_horizon_months", 

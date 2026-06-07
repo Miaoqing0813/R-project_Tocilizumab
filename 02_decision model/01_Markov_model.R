@@ -734,6 +734,9 @@ summarize_adverse_events <- function(results, time_horizon_months = 5*12) {
   event_costs_by_event <- results$event_costs_by_event
   event_qalys_by_event <- results$event_qalys_by_event
   
+  # Infer n_arms from the results 
+  n_arms <- dim(pop_summary)[3]  
+  
   # Calculate total number of INCIDENT events over all cycles (for costing purposes)
   total_incident_events_summary <- data.frame(
     Event = character(),

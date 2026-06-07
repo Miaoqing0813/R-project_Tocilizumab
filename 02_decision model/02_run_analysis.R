@@ -124,7 +124,7 @@ clusterExport(cl, c("run_markov_model", "summarize_adverse_events",
                     "steroid_effect_duration_months",
                     "q_decrement_steroid_duration_months",
                     "trans_probs_first_flare_treat",
-                    "trans_probs_first_flare_control"), 
+                    "trans_probs_first_flare_control"),
               envir = environment())
 
 # Run PSA in parallel

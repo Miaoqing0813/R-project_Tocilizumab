@@ -79,7 +79,7 @@ sample_trans_probs <- function(trans_prob_df, n_sim, time_horizon_months = 5*12)
 }
 
 
-generate_psa_params <- function(n_sim = 10, seed=12345, time_horizon_months = 5*12) {
+generate_psa_params <- function(n_sim = 10, seed=12345, time_horizon_months = 30*12) {
   
   set.seed(seed)
   
@@ -87,7 +87,7 @@ generate_psa_params <- function(n_sim = 10, seed=12345, time_horizon_months = 5*
   cost_vars <- c("c_steroid_monitoring", "c_TCZ_monitoring",
                  "c_vl_y1", "c_vl_y2on", "c_stroke_y1", "c_mi_y1", "c_hf_y1",
                  "c_stroke_y2on", "c_mi_y2on", "c_hf_y2on", "c_fracture_y1",
-                 "c_fracture_y2on", "c_bp", "c_dm", "c_infection")
+                 "c_fracture_y2on", "c_dm", "c_infection")
   
   # List of all utility variable names (beta distribution)
   utility_vars <- c("q_remission", "q_relapse", "q_vl", "q_stroke_y1", 

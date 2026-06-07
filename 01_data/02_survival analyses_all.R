@@ -24,8 +24,6 @@ generate_first_flare_transition_probs <- function(
     time_horizon_weeks = 5 * 52,
     time_horizon_months = 5 * 12,
     dist_beyond = "exp", 
-    anchor_5yr_survival = TRUE,
-    external_5yr_survival = 0.3,
     data_path = here::here(getwd(), "01_data/Raw data"),
     generate_plots = FALSE,
     verbose = TRUE
@@ -125,18 +123,6 @@ generate_first_flare_transition_probs <- function(
   IPD_first_flare_data_treat <- IPDfromKM::getIPD(prep = pre_first_flare_data_treat, armID = 1)$IPD
   IPD_first_flare_data_control <- IPDfromKM::getIPD(prep = pre_first_flare_data_control, armID = 0)$IPD
   
-  # Combine the IPD data with external evidence on 5-year survival to anchor the extrapolation
-  external_5yr_survival <- external_5yr_survival  
-  
-  IPD_first_flare_data_control_anchored <- IPD_first_flare_data_control %>%
-    bind_rows(
-      tibble(
-        time = 260,
-        status = 1 - external_5yr_survival,
-        weight = 0.2  # Adjust 0.2 for how "soft" the constraint is
-      )
-    )
-  
   # Step 4: Fit survival models - WITHIN treatment period
   if (verbose) cat("Step 4: Fitting survival models (within treatment period)...\n")
   
@@ -155,26 +141,8 @@ generate_first_flare_transition_probs <- function(
                                   data = IPD_first_flare_data_treat, 
                                   dist = "lnorm")
   )
-  
-  if (anchor_5yr_survival == TRUE) {
     
-    survival_models_control <- list(
-      exp = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
-                                  data = IPD_first_flare_data_control_anchored, 
-                                  dist = "exp"),
-      weibull = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
-                                      data = IPD_first_flare_data_control_anchored, 
-                                      dist = "weibull"),
-      gamma = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
-                                    data = IPD_first_flare_data_control_anchored, 
-                                    dist = "gamma"),
-      lnorm = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
-                                    data = IPD_first_flare_data_control_anchored, 
-                                    dist = "lnorm")
-    ) 
-    
-  } else {
-    
+  survival_models_control <- list(
     exp = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
                                 data = IPD_first_flare_data_control, 
                                 dist = "exp"),
@@ -187,8 +155,8 @@ generate_first_flare_transition_probs <- function(
     lnorm = flexsurv::flexsurvreg(survival::Surv(time, status) ~ 1, 
                                   data = IPD_first_flare_data_control, 
                                   dist = "lnorm")
+    )
     
-  }
   
   # Select best-fitting models based on subgroup during the treatment period (based on original HTA choices)
   model_selection <- list(

@@ -16,7 +16,8 @@ treatment_duration_weeks <- 52
 time_horizon_months <- 30*12
 time_horizon_weeks <- 30*52
 steroid_effect_duration_months <- 30*12
-dist_beyond <- "exp"
+dist_beyond <- "weibull"
+q_decrement_steroid_duration_months <- 24
 
 # Transition probabilities to first flare 
 surv_results <- generate_first_flare_transition_probs(
@@ -40,7 +41,8 @@ baseline_results <- run_markov_model(use_baseline = TRUE,
                                      time_horizon_weeks = time_horizon_weeks,
                                      time_horizon_months = time_horizon_months,
                                      treatment_duration_months = treatment_duration_months,
-                                     steroid_effect_duration_months = steroid_effect_duration_months
+                                     steroid_effect_duration_months = steroid_effect_duration_months, 
+                                     q_decrement_steroid_duration_months = q_decrement_steroid_duration_months
                                      )
 
 # Print cost effectiveness results
@@ -80,7 +82,7 @@ cat(paste("Difference: £", round(total_event_costs[1] - total_event_costs[2], 0
 cat(paste("Cost savings from reduced adverse events: £", round(total_event_costs[2] - total_event_costs[1], 0), "\n"))
 
 # Generate PSA parameters
-n_sim <- 1000
+n_sim <- 10
 source("01_data/03_psa_inputs.R")
 
 psa_params_all <- generate_psa_params(n_sim = n_sim, 
@@ -102,47 +104,64 @@ psa_incident_events <- array(NA,
 psa_event_rates_per_100py <- psa_per_event_costs <- psa_per_event_qalys <- psa_incident_events
 
 # Run PSA simulations
-for (sim in 1:n_sim) {
-  
-  # Extract parameters for this simulation
+n_cores <- detectCores() - 1  # Leave one core free
+cl <- makeCluster(n_cores)
+
+# Source all necessary files on each cluster node
+# This automatically makes all functions and variables available
+clusterCall(cl, function() {
+  source("01_data/01_model_inputs.R")
+})
+
+# Now you only need to export the iteration-specific data
+clusterExport(cl, c("run_markov_model", "summarize_adverse_events",
+                    "psa_params_all", 
+                    "subgroup", 
+                    "time_horizon_weeks", 
+                    "time_horizon_months", 
+                    "treatment_duration_months", 
+                    "treatment_duration_weeks",
+                    "steroid_effect_duration_months",
+                    "q_decrement_steroid_duration_months",
+                    "trans_probs_first_flare_treat",
+                    "trans_probs_first_flare_control"), 
+              envir = environment())
+
+# Run PSA in parallel
+psa_results_list <- parLapply(cl, 1:n_sim, function(sim) {
   sim_params <- list(
     scalar_params = as.list(psa_params_all$scalar_params[sim, ]),
     vector_params = lapply(psa_params_all$vector_params, function(x) x[sim, ])
   )
   
-  # Run model with these parameters
   results <- run_markov_model(sim_params, 
                               use_baseline = FALSE, 
                               subgroup = subgroup,
                               time_horizon_weeks = time_horizon_weeks,
                               time_horizon_months = time_horizon_months,
                               treatment_duration_months = treatment_duration_months,
-                              steroid_effect_duration_months = steroid_effect_duration_months
-  )
+                              steroid_effect_duration_months = steroid_effect_duration_months)
   
-  # Store results
-  psa_total_costs[sim, ] <- results$total_costs_sum
-  psa_total_qalys[sim, ] <- results$total_qalys_sum
-  psa_icer[sim] <- results$icer
+  ae_summary <- summarize_adverse_events(results, time_horizon_months = time_horizon_months)
   
-  # Store adverse event counts
-  ae_summary <- summarize_adverse_events(results)
-  psa_incident_events[sim, , 1] <- ae_summary$total_incident_events$TCZ_plus_GC
-  psa_incident_events[sim, , 2] <- ae_summary$total_incident_events$GC_alone
-  psa_event_rates_per_100py[sim, , 1] <- ae_summary$event_rates_per_100py$TCZ_plus_GC
-  psa_event_rates_per_100py[sim, , 2] <- ae_summary$event_rates_per_100py$GC_alone
-  psa_per_event_costs[sim, , 1] <- ae_summary$per_event_cost_qaly$TCZ_plus_GC_cost
-  psa_per_event_costs[sim, , 2] <- ae_summary$per_event_cost_qaly$GC_alone_cost
-  psa_per_event_qalys[sim, , 1] <- ae_summary$per_event_cost_qaly$TCZ_plus_GC_QALY
-  psa_per_event_qalys[sim, , 2] <- ae_summary$per_event_cost_qaly$GC_alone_QALY
-  
-  # Progress indicator
-  if (sim %% 100 == 0) {
-    cat(paste("Completed", sim, "of", n_sim, "simulations\n"))
-  }
-}
+  return(list(
+    total_costs = results$total_costs_sum,
+    total_qalys = results$total_qalys_sum,
+    icer = results$icer,
+    total_incident_events = ae_summary$total_incident_events,
+    event_rates_per_100py = ae_summary$event_rates_per_100py,
+    per_event_cost_qaly = ae_summary$per_event_cost_qaly,
+    total_patient_years = ae_summary$total_patient_years
+  ))
+})
 
-# Calculate incremental costs and QALYs
+stopCluster(cl)
+
+# Convert results back to arrays
+psa_total_costs <- do.call(rbind, lapply(psa_results_list, function(x) x$total_costs))
+psa_total_qalys <- do.call(rbind, lapply(psa_results_list, function(x) x$total_qalys))
+psa_icer <- sapply(psa_results_list, function(x) x$icer)
+
 inc_costs_psa <- psa_total_costs[, 1] - psa_total_costs[, 2]
 inc_qalys_psa <- psa_total_qalys[, 1] - psa_total_qalys[, 2]
 
@@ -158,6 +177,18 @@ cat(paste("Mean Incremental QALYs:", round(mean(inc_qalys_psa), 4),
 
 cat(paste("Mean ICER: £", round(mean(psa_icer[is.finite(psa_icer)]), 2), 
           " per QALY\n", sep = ""))
+
+# Store adverse event counts
+psa_incident_events[sim, , 1] <- total_incident_events$TCZ_plus_GC
+psa_incident_events[sim, , 2] <- ae_summary$total_incident_events$GC_alone
+psa_event_rates_per_100py[sim, , 1] <- ae_summary$event_rates_per_100py$TCZ_plus_GC
+psa_event_rates_per_100py[sim, , 2] <- ae_summary$event_rates_per_100py$GC_alone
+psa_per_event_costs[sim, , 1] <- ae_summary$per_event_cost_qaly$TCZ_plus_GC_cost
+psa_per_event_costs[sim, , 2] <- ae_summary$per_event_cost_qaly$GC_alone_cost
+psa_per_event_qalys[sim, , 1] <- ae_summary$per_event_cost_qaly$TCZ_plus_GC_QALY
+psa_per_event_qalys[sim, , 2] <- ae_summary$per_event_cost_qaly$GC_alone_QALY
+  
+
 
 # Summary of adverse events from PSA
 cat("\n=== PSA ADVERSE EVENT SUMMARY ===\n")
@@ -218,111 +249,3 @@ dev.off()
 
 # Save results in Excel
 source("02_decision model/03_export_excel.R")
-
-
-
-
-
-# Run all scenarios together
-##############################
-
-scenarios <- data.frame(
-  scenario_name = c("Base case: Newly diagnosed, 52 weeks",
-                    "Scenario 1: Newly diagnosed, 104 weeks",
-                    "Scenario 2: Relapsed, 52 weeks",
-                    "Scenario 3: Relapsed, 104 weeks",
-                    "Scenario 4: ITT, 52 weeks", 
-                    "Scenario 5: ITT, 104 weeks"),
-  subgroup = c("newlydiag", "newlydiag", "relapsed", "relapsed", "itt", "itt"),
-  treatment_duration_weeks = c(52, 104, 52, 104, 52, 104),
-  treatment_duration_months = c(12, 24, 12, 24, 12, 24),
-  stringsAsFactors = FALSE
-)
-
-scenario_results <- list()
-
-for (i in 1:nrow(scenarios)) {
-  cat("\n========================================\n")
-  cat("Running:", scenarios$scenario_name[i], "\n")
-  cat("========================================\n")
-  
-  # Generate transition probabilities for this scenario
-  trans_probs <- generate_first_flare_transition_probs(
-    subgroup = scenarios$subgroup[i],
-    treatment_duration_weeks = scenarios$treatment_duration_weeks[i],
-    generate_plots = FALSE,
-    verbose = FALSE
-  )
-  
-  # Assign to global environment for Markov model to use
-  trans_probs_first_flare_treat <<- trans_probs$trans_probs_treat
-  trans_probs_first_flare_control <<- trans_probs$trans_probs_control
-  
-  # Run Markov model
-  markov_results <- run_markov_model(use_baseline = TRUE, 
-                                     subgroup = scenarios$subgroup[i],
-                                     treatment_duration_months = scenarios$treatment_duration_months[i])
-  
-  # Generate adverse event summary
-  ae_summary <- summarize_adverse_events(markov_results)
-  
-  # Calculate total event costs
-  total_event_costs <- rowSums(markov_results$event_costs)
-  
-  # Store results
-  scenario_results[[scenarios$scenario_name[i]]] <- list(
-    markov_results = markov_results,
-    trans_probs = trans_probs,
-    ae_summary = ae_summary,
-    total_event_costs = total_event_costs,
-    scenario_info = scenarios[i, ]
-  )
-  
-  # Print key results
-  cat("\nKey Results:\n")
-  cat(paste("Total cost (TCZ+GC): £", round(markov_results$total_costs_sum[1], 2), "\n"))
-  cat(paste("Total QALYs (TCZ+GC):", round(markov_results$total_qalys_sum[1], 4), "\n"))
-  cat(paste("Total cost (GC alone): £", round(markov_results$total_costs_sum[2], 2), "\n"))
-  cat(paste("Total QALYs (GC alone):", round(markov_results$total_qalys_sum[2], 4), "\n"))
-  cat(paste("ICER: £", round(markov_results$icer, 2), " per QALY\n"))
-}
-
-# Create cost effectiveness results summary table
-summary_table <- data.frame(
-  Scenario = character(),
-  Subgroup = character(),
-  Treatment_Duration_Months = numeric(),
-  Total_Cost_TCZ = numeric(),
-  Total_Cost_GC = numeric(),
-  Inc_Cost = numeric(),
-  Total_QALY_TCZ = numeric(),
-  Total_QALY_GC = numeric(),
-  Inc_QALY = numeric(),
-  ICER = numeric(),
-  stringsAsFactors = FALSE
-)
-
-for (scenario_name in names(scenario_results)) {
-  res <- scenario_results[[scenario_name]]
-  
-  summary_table <- rbind(summary_table, data.frame(
-    Scenario = scenario_name,
-    Subgroup = res$scenario_info$subgroup,
-    Treatment_Duration_Months = res$scenario_info$treatment_duration_months,
-    Total_Cost_TCZ = round(res$markov_results$total_costs_sum[1], 2),
-    Total_Cost_GC = round(res$markov_results$total_costs_sum[2], 2),
-    Inc_Cost = round(res$markov_results$inc_cost, 2),
-    Total_QALY_TCZ = round(res$markov_results$total_qalys_sum[1], 4),
-    Total_QALY_GC = round(res$markov_results$total_qalys_sum[2], 4),
-    Inc_QALY = round(res$markov_results$inc_qalys, 4),
-    ICER = round(res$markov_results$icer, 2),
-    stringsAsFactors = FALSE
-  ))
-}
-
-# Print summary table
-cat("\n========================================\n")
-cat("SUMMARY OF ALL SCENARIOS\n")
-cat("========================================\n\n")
-print(summary_table, row.names = FALSE)
-

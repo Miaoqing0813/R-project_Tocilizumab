@@ -82,7 +82,7 @@ cat(paste("Difference: £", round(total_event_costs[1] - total_event_costs[2], 0
 cat(paste("Cost savings from reduced adverse events: £", round(total_event_costs[2] - total_event_costs[1], 0), "\n"))
 
 # Generate PSA parameters
-n_sim <- 10
+n_sim <- 1000
 source("01_data/03_psa_inputs.R")
 
 psa_params_all <- generate_psa_params(n_sim = n_sim, 
@@ -179,18 +179,42 @@ cat(paste("Mean ICER: £", round(mean(psa_icer[is.finite(psa_icer)]), 2),
           " per QALY\n", sep = ""))
 
 # Store adverse event counts
-psa_incident_events[sim, , 1] <- total_incident_events$TCZ_plus_GC
-psa_incident_events[sim, , 2] <- ae_summary$total_incident_events$GC_alone
-psa_event_rates_per_100py[sim, , 1] <- ae_summary$event_rates_per_100py$TCZ_plus_GC
-psa_event_rates_per_100py[sim, , 2] <- ae_summary$event_rates_per_100py$GC_alone
-psa_per_event_costs[sim, , 1] <- ae_summary$per_event_cost_qaly$TCZ_plus_GC_cost
-psa_per_event_costs[sim, , 2] <- ae_summary$per_event_cost_qaly$GC_alone_cost
-psa_per_event_qalys[sim, , 1] <- ae_summary$per_event_cost_qaly$TCZ_plus_GC_QALY
-psa_per_event_qalys[sim, , 2] <- ae_summary$per_event_cost_qaly$GC_alone_QALY
+# Populate psa_incident_events from psa_results_list
+event_names <- c("Vision Loss", "Stroke", "Myocardial Infarction", 
+                 "Heart Failure", "Fractures", "Diabetes", "Infection")
+
+for (sim in 1:n_sim) {
+  incident_df <- psa_results_list[[sim]]$total_incident_events
+  rates_df <- psa_results_list[[sim]]$event_rates_per_100py
+  cost_qaly_df <- psa_results_list[[sim]]$per_event_cost_qaly
   
+  for (event_idx in 1:7) {
+    event_name <- event_names[event_idx]
+    
+    # Find matching row in dataframes
+    row_idx <- which(incident_df$Event == event_name)
+    
+    if (length(row_idx) > 0) {
+      # Populate psa_incident_events
+      psa_incident_events[sim, event_idx, 1] <- incident_df[row_idx, "TCZ_plus_GC"]
+      psa_incident_events[sim, event_idx, 2] <- incident_df[row_idx, "GC_alone"]
+      
+      # Populate psa_event_rates_per_100py
+      psa_event_rates_per_100py[sim, event_idx, 1] <- rates_df[row_idx, "TCZ_plus_GC"]
+      psa_event_rates_per_100py[sim, event_idx, 2] <- rates_df[row_idx, "GC_alone"]
+      
+      # Populate psa_per_event_costs
+      psa_per_event_costs[sim, event_idx, 1] <- cost_qaly_df[row_idx, "TCZ_plus_GC_cost"]
+      psa_per_event_costs[sim, event_idx, 2] <- cost_qaly_df[row_idx, "GC_alone_cost"]
+      
+      # Populate psa_per_event_qalys
+      psa_per_event_qalys[sim, event_idx, 1] <- cost_qaly_df[row_idx, "TCZ_plus_GC_QALY"]
+      psa_per_event_qalys[sim, event_idx, 2] <- cost_qaly_df[row_idx, "GC_alone_QALY"]
+    }
+  }
+}
 
-
-# Summary of adverse events from PSA
+# Now you can use all arrays for summary statistics:
 cat("\n=== PSA ADVERSE EVENT SUMMARY ===\n")
 for (event_idx in 1:7) {
   event_name <- dimnames(psa_incident_events)$event[event_idx]
@@ -204,6 +228,51 @@ for (event_idx in 1:7) {
   cat(paste0("  GC alone: ", round(mean_gc, 3), " (95% CI: ",
              round(ci_gc[1], 3), " to ", round(ci_gc[2], 3), ")\n"))
   cat(paste0("  Difference: ", round(mean_tcz - mean_gc, 3), "\n\n"))
+}
+
+cat("\n=== PSA EVENT RATES (per 100 patient-years) ===\n")
+for (event_idx in 1:7) {
+  event_name <- dimnames(psa_event_rates_per_100py)$event[event_idx]
+  mean_tcz <- mean(psa_event_rates_per_100py[, event_idx, 1])
+  mean_gc <- mean(psa_event_rates_per_100py[, event_idx, 2])
+  ci_tcz <- quantile(psa_event_rates_per_100py[, event_idx, 1], c(0.025, 0.975), na.rm = TRUE)
+  ci_gc <- quantile(psa_event_rates_per_100py[, event_idx, 2], c(0.025, 0.975), na.rm = TRUE)
+  cat(paste0(event_name, ":\n"))
+  cat(paste0("  TCZ+GC: ", round(mean_tcz, 2), " (95% CI: ",
+             round(ci_tcz[1], 2), " to ", round(ci_tcz[2], 2), ")\n"))
+  cat(paste0("  GC alone: ", round(mean_gc, 2), " (95% CI: ",
+             round(ci_gc[1], 2), " to ", round(ci_gc[2], 2), ")\n"))
+  cat(paste0("  Difference: ", round(mean_tcz - mean_gc, 2), "\n\n"))
+}
+
+cat("\n=== PSA PER-EVENT COSTS ===\n")
+for (event_idx in 1:7) {
+  event_name <- dimnames(psa_per_event_costs)$event[event_idx]
+  mean_tcz <- mean(psa_per_event_costs[, event_idx, 1])
+  mean_gc <- mean(psa_per_event_costs[, event_idx, 2])
+  ci_tcz <- quantile(psa_per_event_costs[, event_idx, 1], c(0.025, 0.975), na.rm = TRUE)
+  ci_gc <- quantile(psa_per_event_costs[, event_idx, 2], c(0.025, 0.975), na.rm = TRUE)
+  cat(paste0(event_name, ":\n"))
+  cat(paste0("  TCZ+GC: £", round(mean_tcz, 2), " (95% CI: £",
+             round(ci_tcz[1], 2), " to £", round(ci_tcz[2], 2), ")\n"))
+  cat(paste0("  GC alone: £", round(mean_gc, 2), " (95% CI: £",
+             round(ci_gc[1], 2), " to £", round(ci_gc[2], 2), ")\n"))
+  cat(paste0("  Difference: £", round(mean_tcz - mean_gc, 2), "\n\n"))
+}
+
+cat("\n=== PSA PER-EVENT QALYs ===\n")
+for (event_idx in 1:7) {
+  event_name <- dimnames(psa_per_event_qalys)$event[event_idx]
+  mean_tcz <- mean(psa_per_event_qalys[, event_idx, 1])
+  mean_gc <- mean(psa_per_event_qalys[, event_idx, 2])
+  ci_tcz <- quantile(psa_per_event_qalys[, event_idx, 1], c(0.025, 0.975), na.rm = TRUE)
+  ci_gc <- quantile(psa_per_event_qalys[, event_idx, 2], c(0.025, 0.975), na.rm = TRUE)
+  cat(paste0(event_name, ":\n"))
+  cat(paste0("  TCZ+GC: ", round(mean_tcz, 4), " (95% CI: ",
+             round(ci_tcz[1], 4), " to ", round(ci_tcz[2], 4), ")\n"))
+  cat(paste0("  GC alone: ", round(mean_gc, 4), " (95% CI: ",
+             round(ci_gc[1], 4), " to ", round(ci_gc[2], 4), ")\n"))
+  cat(paste0("  Difference: ", round(mean_tcz - mean_gc, 4), "\n\n"))
 }
 
 # Cost-effectiveness plane

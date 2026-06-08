@@ -292,8 +292,8 @@ run_markov_model <- function(params = NULL,
                      "dm" = list(
                        cost_y1 = c_dm / 12,
                        cost_y2on = c_dm / 12,
-                       decrement_y1 = (q_remission - q_dm) / 12,
-                       decrement_y2on = (q_remission - q_dm) / 12
+                       decrement_y1 = q_decrement_dm / 12,
+                       decrement_y2on = q_decrement_dm / 12
                      ),
                      "infection" = list(
                        cost_y1 = c_infection / 12,

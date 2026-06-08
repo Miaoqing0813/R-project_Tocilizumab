@@ -82,6 +82,52 @@ steroid.hr  <- read.csv(file = "01_data/Raw data/Steroid HR.csv", stringsAsFacto
       }
     }
   }
+  
+# Utility Age Adjustment for Population Norms: assuming 50% split between men and women
+population_utilities <- data.frame(
+  age_group = c("65-69", "70-74", "75-79", "80-84", "85-89", "90+"),
+  age_lower = c(65, 70, 75, 80, 85, 90),
+  age_upper = c(69, 74, 79, 84, 89, 100),
+  female_utility = c(0.775, 0.784, 0.730, 0.710, 0.666, 0.666),
+  male_utility = c(0.797, 0.801, 0.788, 0.767, 0.727, 0.656)
+)
+  
+# Calculate average utility across age groups (50% male, 50% female)
+population_utilities$avg_utility <- (population_utilities$female_utility + population_utilities$male_utility) / 2
+
+# Function to get population utility for a given age
+get_population_utility <- function(age) {
+  # Find the age group that the age falls into
+  idx <- which(age >= population_utilities$age_lower & age <= population_utilities$age_upper)
+  
+  # If age falls within a range, return that utility
+  if (length(idx) > 0) {
+    return(population_utilities$avg_utility[idx[1]])
+  }
+  
+  # If age is below the lowest range, use the first group
+  if (age < population_utilities$age_lower[1]) {
+    return(population_utilities$avg_utility[1])
+  }
+  
+  # If age is above the highest range, use the last group
+  return(population_utilities$avg_utility[nrow(population_utilities)])
+}
+
+# Function to calculate age-adjusted utility
+# trial_age: mean age in trial population, using 70 rather than 69 as population norm utilities increase at age 70
+# target_age: mean age in target population for PSA
+# trial_utility: baseline utility measured from trial population
+adjust_utility_for_age <- function(trial_utility, trial_age = 70, target_age = 71) {
+  
+  # Get population utilities for trial age and target age
+  trial_utility_norm <- get_population_utility(trial_age)
+  target_utility_norm <- get_population_utility(target_age)
+  
+  adjusted_utility <- (trial_utility/trial_utility_norm)* target_utility_norm
+  
+  return(adjusted_utility)
+}
 
 # Probability of Relapse/Flare from subsequent remission for different subgroups (following ERG's scenario analysis 6.3.1))
 # Newly diagnosed patients

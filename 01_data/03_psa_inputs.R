@@ -38,7 +38,7 @@ calc_se_from_ci <- function(lower, upper) {
 }
 
 # Function to sample transition probabilities from survival analyses
-sample_trans_probs <- function(trans_prob_df, n_sim, time_horizon_months = 5*12) {
+sample_trans_probs <- function(trans_prob_df, n_sim, time_horizon_months = 30*12) {
   
   # Pre-allocate matrix for sampled probabilities
   sampled_probs <- matrix(NA, nrow = n_sim, ncol = time_horizon_months)

@@ -52,9 +52,17 @@ run_markov_model <- function(params = NULL,
   state_names <- c("Initial remission", "Relapse", subseq_tunnel_names, "Dead")
   n_states <- length(state_names)
   
-  # Get patients' age and mortality rate in each cycle
-  v.age <- initial_age + ((1: time_horizon_months - 1) / 12) 
+  # Get patients' age and mortality rate and age-adjusted utilities in each cycle
+  v.age <- initial_age + ((1: time_horizon_months - 1) / 12) # Age at the start of each cycle
   v.allcause.mort.monthly <- get_monthly_mort(v.age, v.allcause.mort)
+  
+  v.q_remission_adjusted <- sapply(ceiling(v.age), function(age) {
+    adjust_utility_for_age(q_remission, trial_age = 70, target_age = age)
+  })
+  
+  v.q_relapse_adjusted <- sapply(ceiling(v.age), function(age) {
+    adjust_utility_for_age(q_relapse, trial_age = 70, target_age = age)
+  })
   
   # Convert annual probabilities into monthly probabilities
   annual_probs <- c("p_vl", "p_stroke", "p_mi", "p_hf", "p_fractures", "p_infection", "p_dm") 
@@ -262,32 +270,32 @@ run_markov_model <- function(params = NULL,
                      "vl" = list(
                        cost_y1 = c_vl_y1 / 12,
                        cost_y2on = c_vl_y2on / 12,
-                       decrement_y1 = (q_remission - q_vl) / 12,
-                       decrement_y2on = (q_remission - q_vl) / 12
+                       decrement_y1 = (v.q_remission_adjusted[cycle] - q_vl) / 12,
+                       decrement_y2on = (v.q_remission_adjusted[cycle] - q_vl) / 12
                      ),
                      "stroke" = list(
                        cost_y1 = c_stroke_y1 / 12,
                        cost_y2on = c_stroke_y2on / 12,
-                       decrement_y1 = (q_remission - q_stroke_y1) / 12,
-                       decrement_y2on = (q_remission - q_stroke_y2on) / 12
+                       decrement_y1 = (v.q_remission_adjusted[cycle] - q_stroke_y1) / 12,
+                       decrement_y2on = (v.q_remission_adjusted[cycle] - q_stroke_y2on) / 12
                      ),
                      "mi" = list(
                        cost_y1 = c_mi_y1 / 12,
                        cost_y2on = c_mi_y2on / 12,
-                       decrement_y1 = (q_remission - q_mi_y1) / 12,
-                       decrement_y2on = (q_remission - q_mi_y2on) / 12
+                       decrement_y1 = (v.q_remission_adjusted[cycle] - q_mi_y1) / 12,
+                       decrement_y2on = (v.q_remission_adjusted[cycle] - q_mi_y2on) / 12
                      ),
                      "hf" = list(
                        cost_y1 = c_hf_y1 / 12,
                        cost_y2on = c_hf_y2on / 12,
-                       decrement_y1 = (q_remission - q_hf_y1) / 12,
-                       decrement_y2on = (q_remission - q_hf_y2on) / 12
+                       decrement_y1 = (v.q_remission_adjusted[cycle] - q_hf_y1) / 12,
+                       decrement_y2on = (v.q_remission_adjusted[cycle] - q_hf_y2on) / 12
                      ),
                      "fractures" = list(
                        cost_y1 = c_fracture_y1 / 12,
                        cost_y2on = c_fracture_y2on / 12,
-                       decrement_y1 = (q_remission - q_fracture_y1) / 12,
-                       decrement_y2on = (q_remission - q_fracture_y2on) / 12
+                       decrement_y1 = (v.q_remission_adjusted[cycle] - q_fracture_y1) / 12,
+                       decrement_y2on = (v.q_remission_adjusted[cycle] - q_fracture_y2on) / 12
                      ),
                      "dm" = list(
                        cost_y1 = c_dm / 12,
@@ -392,15 +400,15 @@ run_markov_model <- function(params = NULL,
           
           if (is.null(q_decrement_steroid_duration_months)) {
             if (cycle_num <= 6) {  # Treatment arm: 6 months
-              state_utility <- (q_remission - q_decrement_steroid)/12
+              state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
             } else {
-              state_utility <- q_remission/12
+              state_utility <- v.q_remission_adjusted[cycle]/12
             }
           } else {
             if (cycle_num <= q_decrement_steroid_duration_months) {
-              state_utility <- (q_remission - q_decrement_steroid)/12
+              state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
             } else {
-              state_utility <- q_remission/12
+              state_utility <- v.q_remission_adjusted[cycle]/12
             }
           }
           
@@ -409,10 +417,10 @@ run_markov_model <- function(params = NULL,
           if (is.null(q_decrement_steroid_duration_months)) {
             if (cycle_num <= 13) {
               state_cost <- ifelse(cycle_num == 1, c_steroid_control_init_remission, 0) + c_steroid_monitoring + c_bp/12
-              state_utility <- (q_remission - q_decrement_steroid)/12
+              state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
             } else {
               state_cost <- 0
-              state_utility <- q_remission/12
+              state_utility <- v.q_remission_adjusted[cycle]/12
             }
           } else {
             if (cycle_num <= 13) {  # Baseline steroid taper period for control
@@ -422,9 +430,9 @@ run_markov_model <- function(params = NULL,
             }
             
             if (cycle_num <= q_decrement_steroid_duration_months) {
-              state_utility <- (q_remission - q_decrement_steroid)/12
+              state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
             } else {
-              state_utility <- q_remission/12
+              state_utility <- v.q_remission_adjusted[cycle]/12
             }
           }
         }
@@ -463,7 +471,7 @@ run_markov_model <- function(params = NULL,
         state_pop <- pop["Relapse", j, i]
         
         # State costs and utilities
-        state_utility <- (q_relapse - q_decrement_steroid)/12
+        state_utility <- (v.q_relapse_adjusted[cycle] - q_decrement_steroid)/12
         
         if (i == 1) {  # Treatment arm
           state_cost <- c_steroid_treat_relapse + c_steroid_monitoring
@@ -516,11 +524,11 @@ run_markov_model <- function(params = NULL,
             
             if (is.null(q_decrement_steroid_duration_months)) {
               if (tunnel_idx <= 7) {  # Treatment arm: 7 months
-                state_utility <- (q_remission - q_decrement_steroid)/12
+                state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
                 state_cost <- c_steroid_monitoring + 
                   ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0)
               } else {
-                state_utility <- q_remission/12
+                state_utility <- v.q_remission_adjusted[cycle]/12
                 state_cost <- 0
               }
             } else {
@@ -532,9 +540,9 @@ run_markov_model <- function(params = NULL,
               }
               
               if ((1 + tunnel_idx) <= q_decrement_steroid_duration_months) {
-                state_utility <- (q_remission - q_decrement_steroid)/12
+                state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
               } else {
-                state_utility <- q_remission/12
+                state_utility <- v.q_remission_adjusted[cycle]/12
               }
             }
             
@@ -542,11 +550,11 @@ run_markov_model <- function(params = NULL,
             
             if (is.null(q_decrement_steroid_duration_months)) {
               if (tunnel_idx <= 10) {  # Control arm: 10 months
-                state_utility <- (q_remission - q_decrement_steroid)/12
+                state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
                 state_cost <- c_steroid_monitoring  + c_bp/12 + 
                   ifelse(tunnel_idx == 1, c_steroid_control_sub_remission, 0)
               } else {
-                state_utility <- q_remission/12
+                state_utility <- v.q_remission_adjusted[cycle]/12
                 state_cost <- 0
               }
             } else {
@@ -558,9 +566,9 @@ run_markov_model <- function(params = NULL,
               }
               
               if ((1 + tunnel_idx) <= q_decrement_steroid_duration_months) {
-                state_utility <- (q_remission - q_decrement_steroid)/12
+                state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
               } else {
-                state_utility <- q_remission/12
+                state_utility <- v.q_remission_adjusted[cycle]/12
               }
             }
           }

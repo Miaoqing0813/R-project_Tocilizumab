@@ -270,32 +270,32 @@ run_markov_model <- function(params = NULL,
                      "vl" = list(
                        cost_y1 = c_vl_y1 / 12,
                        cost_y2on = c_vl_y2on / 12,
-                       decrement_y1 = (v.q_remission_adjusted[cycle] - q_vl) / 12,
-                       decrement_y2on = (v.q_remission_adjusted[cycle] - q_vl) / 12
+                       decrement_y1 = (v.q_remission_adjusted[cycle_num] * q_multiplier_vl - v.q_remission_adjusted[cycle_num]) / 12,
+                       decrement_y2on = (v.q_remission_adjusted[cycle_num] * q_multiplier_vl - v.q_remission_adjusted[cycle_num]) / 12
                      ),
                      "stroke" = list(
                        cost_y1 = c_stroke_y1 / 12,
                        cost_y2on = c_stroke_y2on / 12,
-                       decrement_y1 = (v.q_remission_adjusted[cycle] - q_stroke_y1) / 12,
-                       decrement_y2on = (v.q_remission_adjusted[cycle] - q_stroke_y2on) / 12
+                       decrement_y1 = (v.q_remission_adjusted[cycle_num] * q_multiplier_stroke_y1 - v.q_remission_adjusted[cycle_num]) / 12,
+                       decrement_y2on = (v.q_remission_adjusted[cycle_num] * q_multiplier_stroke_y2on - v.q_remission_adjusted[cycle_num]) / 12
                      ),
                      "mi" = list(
                        cost_y1 = c_mi_y1 / 12,
                        cost_y2on = c_mi_y2on / 12,
-                       decrement_y1 = (v.q_remission_adjusted[cycle] - q_mi_y1) / 12,
-                       decrement_y2on = (v.q_remission_adjusted[cycle] - q_mi_y2on) / 12
+                       decrement_y1 = (v.q_remission_adjusted[cycle_num] * q_multiplier_mi_y1 - v.q_remission_adjusted[cycle_num]) / 12,
+                       decrement_y2on = (v.q_remission_adjusted[cycle_num] * q_multiplier_mi_y2on - v.q_remission_adjusted[cycle_num]) / 12
                      ),
                      "hf" = list(
                        cost_y1 = c_hf_y1 / 12,
                        cost_y2on = c_hf_y2on / 12,
-                       decrement_y1 = (v.q_remission_adjusted[cycle] - q_hf_y1) / 12,
-                       decrement_y2on = (v.q_remission_adjusted[cycle] - q_hf_y2on) / 12
+                       decrement_y1 = (v.q_remission_adjusted[cycle_num] * q_multiplier_hf_y1 - v.q_remission_adjusted[cycle_num]) / 12,
+                       decrement_y2on = (v.q_remission_adjusted[cycle_num] * q_multiplier_hf_y2on - v.q_remission_adjusted[cycle_num]) / 12
                      ),
                      "fractures" = list(
                        cost_y1 = c_fracture_y1 / 12,
                        cost_y2on = c_fracture_y2on / 12,
-                       decrement_y1 = (v.q_remission_adjusted[cycle] - q_fracture_y1) / 12,
-                       decrement_y2on = (v.q_remission_adjusted[cycle] - q_fracture_y2on) / 12
+                       decrement_y1 = (v.q_remission_adjusted[cycle_num] * q_multiplier_fracture_y1 - v.q_remission_adjusted[cycle_num]) / 12,
+                       decrement_y2on = (v.q_remission_adjusted[cycle_num] * q_multiplier_fracture_y2on - v.q_remission_adjusted[cycle_num]) / 12
                      ),
                      "dm" = list(
                        cost_y1 = c_dm / 12,

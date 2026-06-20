@@ -326,12 +326,12 @@ calculate_transition_probs <- function(short_term_model, long_term_model,
   # Calculate monthly transition probabilities for first year
   n_short_months <- length(short_surv_est) - 1
   
-  short_trans_prob_est <- 1 - (short_surv_est[-1] / short_surv_est[-length(short_surv_est)])
+  short_trans_prob_est   <- 1 - (short_surv_est[-1] / short_surv_est[-length(short_surv_est)])
   short_trans_prob_lower <- 1 - (short_surv_upper[-1] / short_surv_upper[-length(short_surv_upper)])
   short_trans_prob_upper <- 1 - (short_surv_lower[-1] / short_surv_lower[-length(short_surv_lower)])
   
-  # Long-term yearly probabilities converted to monthly (beyond treatment duration)
-  yearly_timepoints <- seq(treatment_duration_weeks + 52, time_horizon_weeks, by = 52)
+  # Long-term yearly probabilities converted to monthly (beyond treatment duration) 
+  yearly_timepoints <- seq(treatment_duration_weeks, time_horizon_weeks, by = 52)
   
   # Get long-term survival probabilities
   long_surv_summary <- summary(long_term_model, type = "survival", t = yearly_timepoints, ci = TRUE)[[1]]
@@ -339,17 +339,12 @@ calculate_transition_probs <- function(short_term_model, long_term_model,
   long_surv_lower <- pmax(long_surv_summary$lcl, 0.001)
   long_surv_upper <- pmax(long_surv_summary$ucl, 0.001)
   
-  # Add baseline from end of short-term period
-  endshort_long_surv_est <- c(short_surv_est[length(short_surv_est)], long_surv_est)
-  endshort_long_surv_lower <- c(short_surv_lower[length(short_surv_lower)], long_surv_lower)
-  endshort_long_surv_upper <- c(short_surv_upper[length(short_surv_upper)], long_surv_upper)
+  # Calculate yearly transition probabilities for long-term using ONLY long-term parameters
+  n_long_years <- length(long_surv_est) - 1
   
-  # Calculate yearly transition probabilities for long-term
-  n_long_years <- length(endshort_long_surv_est) - 1
-  
-  long_yearly_trans_est <- 1 - (endshort_long_surv_est[-1] / endshort_long_surv_est[-length(endshort_long_surv_est)])
-  long_yearly_trans_lower <- 1 - (endshort_long_surv_lower[-1] / endshort_long_surv_lower[-length(endshort_long_surv_lower)])
-  long_yearly_trans_upper <- 1 - (endshort_long_surv_upper[-1] / endshort_long_surv_upper[-length(endshort_long_surv_upper)])
+  long_yearly_trans_est   <- 1 - (long_surv_est[-1] / long_surv_est[-length(long_surv_est)])
+  long_yearly_trans_lower <- 1 - (long_surv_upper[-1] / long_surv_upper[-length(long_surv_upper)])
+  long_yearly_trans_upper <- 1 - (long_surv_lower[-1] / long_surv_lower[-length(long_surv_lower)])
   
   # Ensure transition probabilities are valid (0 to 1)
   long_yearly_trans_est <- pmax(0, pmin(1, long_yearly_trans_est))
@@ -375,27 +370,31 @@ calculate_transition_probs <- function(short_term_model, long_term_model,
   all_trans_upper[1:n_short_months] <- short_trans_prob_upper
   
   # Fill in long-term (beyond the treatment duration)
-  # Each yearly probability applies to 12 months
+  # Dynamically matches each calculated transition year to its corresponding calendar months
   for (i in 1:n_long_years) {
-    start_month <- n_short_months + (i-1)*12 + 1
-    end_month <- min(n_short_months + i*12, time_horizon_months)
+    # Calculate the exact calendar months for this specific year of extrapolation
+    start_month <- n_short_months + ((i - 1) * 12) + 1
+    end_month   <- min(n_short_months + (i * 12), time_horizon_months)
     
-    all_trans_prob[start_month:end_month] <- long_monthly_trans_est[i]
-    all_trans_lower[start_month:end_month] <- long_monthly_trans_lower[i]
-    all_trans_upper[start_month:end_month] <- long_monthly_trans_upper[i]
+    if (start_month <= time_horizon_months) {
+      all_trans_prob[start_month:end_month]  <- long_monthly_trans_est[i]
+      all_trans_lower[start_month:end_month] <- long_monthly_trans_lower[i]
+      all_trans_upper[start_month:end_month] <- long_monthly_trans_upper[i]
+    }
   }
   
-  # Ensure valid probability bounds
-  all_trans_lower <- pmax(0, all_trans_lower)
-  all_trans_upper <- pmin(1, all_trans_upper)
+  # Post-aggregation bounds clean-up
+  all_trans_prob  <- pmax(0, pmin(1, all_trans_prob))
+  all_trans_lower <- pmax(0, pmin(1, all_trans_lower))
+  all_trans_upper <- pmax(0, pmin(1, all_trans_upper))
   
   # Create final results dataframe
   trans_prob <- data.frame(
     month = all_months,
     year = ceiling(all_months / 12),
     trans_prob = all_trans_prob,
-    trans_prob_lower = all_trans_lower,
-    trans_prob_upper = all_trans_upper,
+    trans_prob_lower = pmin(all_trans_lower, all_trans_prob), # Ensure lower <= mean
+    trans_prob_upper = pmax(all_trans_upper, all_trans_prob), # Ensure upper >= mean
     period = c(rep("Short-term", n_short_months), 
                rep("Long-term", time_horizon_months - n_short_months)),
     stringsAsFactors = FALSE
@@ -429,18 +428,3 @@ plot_transition_probs <- function(trans_prob_df, title="Transition probabilities
     ggplot2::scale_x_continuous(breaks = seq(0, max_months, 12)) +
     ggplot2::theme(plot.title = ggplot2::element_text(size = 12))
 }
-
-
-#' @examples
-#' # For newly diagnosed patients with 52-week treatment
-#' results_newlydiag_52 <- generate_first_flare_transition_probs(
-#'   subgroup = "newlydiag",
-#'   treatment_duration_weeks = 52
-#' )
-#'
-#' # For relapsed patients with 104-week treatment
-#' results_relapsed_104 <- generate_first_flare_transition_probs(
-#'   subgroup = "relapsed",
-#'   treatment_duration_weeks = 104
-#' )
-

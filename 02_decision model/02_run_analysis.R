@@ -15,9 +15,10 @@ treatment_duration_months <- 12
 treatment_duration_weeks <- 52
 time_horizon_months <- 30*12
 time_horizon_weeks <- 30*52
-steroid_effect_duration_months <- 30*12
-dist_beyond <- "weibull"
-q_decrement_steroid_duration_months <- 24
+steroid_effect_duration_months <- 30*12 # base case: 30 years of steroid effect; use 5 years, 10 years and 20 years in the scenario analyses
+dist_beyond <- "weibull" # base case: weibull; use exp for sensitivity analyses
+q_decrement_steroid_duration_months <- 24 # base case: 2 years of decrement for steroid-related adverse events; use 60 for 5 years, 120 for 10 years in the scenario analyses
+
 
 # Transition probabilities to first flare 
 surv_results <- generate_first_flare_transition_probs(
@@ -164,6 +165,7 @@ psa_icer <- sapply(psa_results_list, function(x) x$icer)
 
 inc_costs_psa <- psa_total_costs[, 1] - psa_total_costs[, 2]
 inc_qalys_psa <- psa_total_qalys[, 1] - psa_total_qalys[, 2]
+psa_icer_mean <- mean(inc_costs_psa)/mean(inc_qalys_psa)
 
 # Summary statistics
 cat("\n=== PSA RESULTS SUMMARY ===\n")
@@ -175,7 +177,7 @@ cat(paste("Mean Incremental QALYs:", round(mean(inc_qalys_psa), 4),
           " (95% CI:", round(quantile(inc_qalys_psa, 0.025), 4), "to", 
           round(quantile(inc_qalys_psa, 0.975), 4), ")\n"))
 
-cat(paste("Mean ICER: £", round(mean(psa_icer[is.finite(psa_icer)]), 2), 
+cat(paste("Mean ICER: £", round(psa_icer_mean, 2), 
           " per QALY\n", sep = ""))
 
 # Store adverse event counts
@@ -294,7 +296,7 @@ wtp_thresholds <- c(25000, 35000)
 for (wtp in wtp_thresholds) {
   abline(a = 0, b = wtp, col = "red", lty = 2)
 }
-legend("topleft", legend = c("£20,000/QALY", "£30,000/QALY"), 
+legend("topleft", legend = c("£25,000/QALY", "£35,000/QALY"), 
        col = "red", lty = 2)
 
 dev.off()
@@ -318,3 +320,6 @@ dev.off()
 
 # Save results in Excel
 source("02_decision model/03_export_excel.R")
+
+# Save the R environment
+save.image(file = "myEnvironment.RData")

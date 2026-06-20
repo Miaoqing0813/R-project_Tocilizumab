@@ -21,9 +21,7 @@ run_markov_model <- function(params = NULL,
   # treatment_duration_months: duration of treatment in months
   # steroid_effect_duration_months: duration in months that steroid adverse event risks apply after starting steroids
   # q_decrement_steroid_duration_months: duration in months that q_decrement_steroid applies
-    # If NULL, uses baseline behavior (steroid tapering schedule). 
-    # If numeric (e.g., 24 for 2 years, 60 for 5 years, 120 for 10 years), applies decrement for that fixed duration.
-  
+      
   # If params provided, assign them to the environment
   if (!is.null(params)) {
     # Scalar parameters
@@ -197,7 +195,6 @@ run_markov_model <- function(params = NULL,
       } else {
         stop("Invalid subgroup. Must be one of: 'newlydiag', 'relapsed', or 'itt'")
       }
-      
     }
     
     # Initialize TPM
@@ -265,37 +262,37 @@ run_markov_model <- function(params = NULL,
   }
   
   # Apply costs and utility impacts for all adverse events
-  get_event_params <- function(event) {
+  get_event_params <- function(event, cycle_num) {
     params <- switch(event,
                      "vl" = list(
                        cost_y1 = c_vl_y1 / 12,
                        cost_y2on = c_vl_y2on / 12,
-                       decrement_y1 = (v.q_remission_adjusted[cycle_num] * q_multiplier_vl - v.q_remission_adjusted[cycle_num]) / 12,
-                       decrement_y2on = (v.q_remission_adjusted[cycle_num] * q_multiplier_vl - v.q_remission_adjusted[cycle_num]) / 12
+                       decrement_y1 = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_vl) / 12,
+                       decrement_y2on = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_vl) / 12
                      ),
                      "stroke" = list(
                        cost_y1 = c_stroke_y1 / 12,
                        cost_y2on = c_stroke_y2on / 12,
-                       decrement_y1 = (v.q_remission_adjusted[cycle_num] * q_multiplier_stroke_y1 - v.q_remission_adjusted[cycle_num]) / 12,
-                       decrement_y2on = (v.q_remission_adjusted[cycle_num] * q_multiplier_stroke_y2on - v.q_remission_adjusted[cycle_num]) / 12
+                       decrement_y1 = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_stroke_y1) / 12,
+                       decrement_y2on = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_stroke_y2on) / 12
                      ),
                      "mi" = list(
                        cost_y1 = c_mi_y1 / 12,
                        cost_y2on = c_mi_y2on / 12,
-                       decrement_y1 = (v.q_remission_adjusted[cycle_num] * q_multiplier_mi_y1 - v.q_remission_adjusted[cycle_num]) / 12,
-                       decrement_y2on = (v.q_remission_adjusted[cycle_num] * q_multiplier_mi_y2on - v.q_remission_adjusted[cycle_num]) / 12
+                       decrement_y1 = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_mi_y1) / 12,
+                       decrement_y2on = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_mi_y2on) / 12
                      ),
                      "hf" = list(
                        cost_y1 = c_hf_y1 / 12,
                        cost_y2on = c_hf_y2on / 12,
-                       decrement_y1 = (v.q_remission_adjusted[cycle_num] * q_multiplier_hf_y1 - v.q_remission_adjusted[cycle_num]) / 12,
-                       decrement_y2on = (v.q_remission_adjusted[cycle_num] * q_multiplier_hf_y2on - v.q_remission_adjusted[cycle_num]) / 12
+                       decrement_y1 = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_hf_y1) / 12,
+                       decrement_y2on = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_hf_y2on) / 12
                      ),
                      "fractures" = list(
                        cost_y1 = c_fracture_y1 / 12,
                        cost_y2on = c_fracture_y2on / 12,
-                       decrement_y1 = (v.q_remission_adjusted[cycle_num] * q_multiplier_fracture_y1 - v.q_remission_adjusted[cycle_num]) / 12,
-                       decrement_y2on = (v.q_remission_adjusted[cycle_num] * q_multiplier_fracture_y2on - v.q_remission_adjusted[cycle_num]) / 12
+                       decrement_y1 = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_fracture_y1) / 12,
+                       decrement_y2on = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_fracture_y2on) / 12
                      ),
                      "dm" = list(
                        cost_y1 = c_dm / 12,
@@ -337,6 +334,17 @@ run_markov_model <- function(params = NULL,
   
   # Track total number of patients who have ever experienced a specific event up to a given cycle
   cumulative_populations <- list(
+    vl = array(0, dim = c(n_arms, time_horizon_months + 1), dimnames = list(arms = arms, cycle = NULL)),
+    stroke = array(0, dim = c(n_arms, time_horizon_months + 1), dimnames = list(arms = arms, cycle = NULL)),
+    mi = array(0, dim = c(n_arms, time_horizon_months + 1), dimnames = list(arms = arms, cycle = NULL)),
+    hf = array(0, dim = c(n_arms, time_horizon_months + 1), dimnames = list(arms = arms, cycle = NULL)),
+    fractures = array(0, dim = c(n_arms, time_horizon_months + 1), dimnames = list(arms = arms, cycle = NULL)),
+    dm = array(0, dim = c(n_arms, time_horizon_months + 1), dimnames = list(arms = arms, cycle = NULL)),
+    infection = array(0, dim = c(n_arms, time_horizon_months + 1), dimnames = list(arms = arms, cycle = NULL))
+  )
+  
+  # Track alive patients who have experienced a specific event up to a given cycle
+  alive_cumulative_populations <- list(
     vl = array(0, dim = c(n_arms, time_horizon_months + 1), dimnames = list(arms = arms, cycle = NULL)),
     stroke = array(0, dim = c(n_arms, time_horizon_months + 1), dimnames = list(arms = arms, cycle = NULL)),
     mi = array(0, dim = c(n_arms, time_horizon_months + 1), dimnames = list(arms = arms, cycle = NULL)),
@@ -400,15 +408,15 @@ run_markov_model <- function(params = NULL,
           
           if (is.null(q_decrement_steroid_duration_months)) {
             if (cycle_num <= 6) {  # Treatment arm: 6 months
-              state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
+              state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
             } else {
-              state_utility <- v.q_remission_adjusted[cycle]/12
+              state_utility <- v.q_remission_adjusted[cycle_num]/12
             }
           } else {
             if (cycle_num <= q_decrement_steroid_duration_months) {
-              state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
+              state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
             } else {
-              state_utility <- v.q_remission_adjusted[cycle]/12
+              state_utility <- v.q_remission_adjusted[cycle_num]/12
             }
           }
           
@@ -416,23 +424,23 @@ run_markov_model <- function(params = NULL,
           
           if (is.null(q_decrement_steroid_duration_months)) {
             if (cycle_num <= 13) {
-              state_cost <- ifelse(cycle_num == 1, c_steroid_control_init_remission, 0) + c_steroid_monitoring + c_bp/12
-              state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
+              state_cost <- ifelse(cycle_num == 1, c_steroid_control_init_remission, 0) + c_steroid_monitoring + c_bp
+              state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
             } else {
               state_cost <- 0
-              state_utility <- v.q_remission_adjusted[cycle]/12
+              state_utility <- v.q_remission_adjusted[cycle_num]/12
             }
           } else {
             if (cycle_num <= 13) {  # Baseline steroid taper period for control
-              state_cost <- ifelse(cycle_num == 1, c_steroid_control_init_remission, 0) + c_steroid_monitoring + c_bp/12
+              state_cost <- ifelse(cycle_num == 1, c_steroid_control_init_remission, 0) + c_steroid_monitoring + c_bp
             } else {
               state_cost <- 0
             }
             
             if (cycle_num <= q_decrement_steroid_duration_months) {
-              state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
+              state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
             } else {
-              state_utility <- v.q_remission_adjusted[cycle]/12
+              state_utility <- v.q_remission_adjusted[cycle_num]/12
             }
           }
         }
@@ -471,12 +479,12 @@ run_markov_model <- function(params = NULL,
         state_pop <- pop["Relapse", j, i]
         
         # State costs and utilities
-        state_utility <- (v.q_relapse_adjusted[cycle] - q_decrement_steroid)/12
+        state_utility <- (v.q_relapse_adjusted[cycle_num] - q_decrement_steroid)/12
         
         if (i == 1) {  # Treatment arm
           state_cost <- c_steroid_treat_relapse + c_steroid_monitoring
         } else {  # Control arm
-          state_cost <- c_steroid_control_relapse + c_steroid_monitoring + c_bp/12
+          state_cost <- c_steroid_control_relapse + c_steroid_monitoring + c_bp
         }
         
         # Apply discounting and add to cycle totals
@@ -524,11 +532,11 @@ run_markov_model <- function(params = NULL,
             
             if (is.null(q_decrement_steroid_duration_months)) {
               if (tunnel_idx <= 7) {  # Treatment arm: 7 months
-                state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
+                state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
                 state_cost <- c_steroid_monitoring + 
                   ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0)
               } else {
-                state_utility <- v.q_remission_adjusted[cycle]/12
+                state_utility <- v.q_remission_adjusted[cycle_num]/12
                 state_cost <- 0
               }
             } else {
@@ -540,9 +548,9 @@ run_markov_model <- function(params = NULL,
               }
               
               if ((1 + tunnel_idx) <= q_decrement_steroid_duration_months) {
-                state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
+                state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
               } else {
-                state_utility <- v.q_remission_adjusted[cycle]/12
+                state_utility <- v.q_remission_adjusted[cycle_num]/12
               }
             }
             
@@ -550,25 +558,25 @@ run_markov_model <- function(params = NULL,
             
             if (is.null(q_decrement_steroid_duration_months)) {
               if (tunnel_idx <= 10) {  # Control arm: 10 months
-                state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
-                state_cost <- c_steroid_monitoring  + c_bp/12 + 
+                state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
+                state_cost <- c_steroid_monitoring  + c_bp + 
                   ifelse(tunnel_idx == 1, c_steroid_control_sub_remission, 0)
               } else {
-                state_utility <- v.q_remission_adjusted[cycle]/12
+                state_utility <- v.q_remission_adjusted[cycle_num]/12
                 state_cost <- 0
               }
             } else {
               if (tunnel_idx <= 10) {  # Baseline steroid taper period for control
-                state_cost <- c_steroid_monitoring  + c_bp/12 + 
+                state_cost <- c_steroid_monitoring  + c_bp + 
                   ifelse(tunnel_idx == 1, c_steroid_control_sub_remission, 0)
               } else {
                 state_cost <- 0
               }
               
               if ((1 + tunnel_idx) <= q_decrement_steroid_duration_months) {
-                state_utility <- (v.q_remission_adjusted[cycle] - q_decrement_steroid)/12
+                state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
               } else {
-                state_utility <- v.q_remission_adjusted[cycle]/12
+                state_utility <- v.q_remission_adjusted[cycle_num]/12
               }
             }
           }
@@ -606,11 +614,20 @@ run_markov_model <- function(params = NULL,
       
       # Update the cumulative_populations arrays once per cycle, after all states have been processed.
       for (event in all_events) {
-        # The cumulative population is the total from the last cycle plus the new incidents
+        # The cumulative population is the total from the last cycle plus the new incidents (unadjusted for death)
         if (cycle_num == 1) {
           cumulative_populations[[event]][i, cycle_num] <- event_log[[event]][i, cycle_num]
+          alive_cumulative_populations[[event]][i, cycle_num] <- event_log[[event]][i, cycle_num]
         } else {
           cumulative_populations[[event]][i, cycle_num] <- cumulative_populations[[event]][i, cycle_num-1] + event_log[[event]][i, cycle_num]
+          
+          if ((1 - pop["Dead", j-1, i]) > 1e-10) {
+            survival_rate_cycle <- (1 - pop["Dead", j, i]) / (1 - pop["Dead", j-1, i])
+          } else {
+            survival_rate_cycle <- 0
+          }
+          alive_cumulative_populations[[event]][i, cycle_num] <- 
+            (alive_cumulative_populations[[event]][i, cycle_num-1] * survival_rate_cycle) + event_log[[event]][i, cycle_num]
         }
       }
       
@@ -620,8 +637,7 @@ run_markov_model <- function(params = NULL,
         # NEW CASES - YEAR 1: Apply year 1 difference for first 12 months
         if (event_log[[event]][i, cycle_num] > 1e-10) {
           new_cases <- event_log[[event]][i, cycle_num]
-          
-          event_params <- get_event_params(event)
+          event_params <- get_event_params(event, cycle_num)
           
           # Apply the DIFFERENCE between year 1 and year 2+ for 12 months
           cost_y1_diff <- event_params$cost_y1 - event_params$cost_y2on
@@ -632,36 +648,45 @@ run_markov_model <- function(params = NULL,
             if (cycle_num + month_in_year1 <= time_horizon_months) {
               future_cycle <- cycle_num + month_in_year1
               
-              discounted_cost <- apply_discount(new_cases * cost_y1_diff, 
+              # SAFEGUARD: Prevent out-of-bounds array access at final horizon cycles
+              dead_lookup_idx <- min(future_cycle + 1, time_horizon_months + 1)
+              
+              # Adjust new cases for future survival ratio from cycle_num to future_cycle
+              if ((1 - pop["Dead", j, i]) > 1e-10) {
+                survival_ratio_future <- (1 - pop["Dead", dead_lookup_idx, i]) / (1 - pop["Dead", j, i])
+              } else {
+                survival_ratio_future <- 0
+              }
+              
+              alive_new_cases <- new_cases * survival_ratio_future
+              
+              discounted_cost <- apply_discount(alive_new_cases * cost_y1_diff, 
                                                 disc_rate, 
                                                 floor((future_cycle - 1)/12) + 1)
-              discounted_qaly <- apply_discount(new_cases * decrement_y1_diff, 
+              discounted_qaly <- apply_discount(alive_new_cases * decrement_y1_diff, 
                                                 disc_rate, 
                                                 floor((future_cycle - 1)/12) + 1)
               
               event_costs[i, future_cycle] <- event_costs[i, future_cycle] + discounted_cost 
-              
-              
               event_qalys[i, future_cycle] <- event_qalys[i, future_cycle] - discounted_qaly 
               
-              # Per-event tracking - same values
+              # Per-event tracking
               idx <- match(event, all_events)
               event_costs_by_event[idx, i, future_cycle] <- 
                 event_costs_by_event[idx, i, future_cycle] + discounted_cost
               event_qalys_by_event[idx, i, future_cycle] <- 
                 event_qalys_by_event[idx, i, future_cycle] - discounted_qaly
-              
             }
           }
         }
         
         # ALL EXISTING CASES - YEAR 2+: Apply year 2+ baseline costs every cycle
-        existing_cumulative <- cumulative_populations[[event]][i, j-1]
+        existing_cumulative <- alive_cumulative_populations[[event]][i, cycle_num]
         
         if (existing_cumulative > 1e-10) {
-          event_params <- get_event_params(event)
+          event_params <- get_event_params(event, cycle_num)
           
-          # Apply year 2+ costs/utilities to all existing cases (monthly basis)
+          # Apply year 2+ costs/utilities to all existing alive cases (monthly basis)
           discounted_cost <- apply_discount(existing_cumulative * event_params$cost_y2on, 
                                             disc_rate, current_year)
           discounted_qaly <- apply_discount(existing_cumulative * event_params$decrement_y2on, 
@@ -670,16 +695,14 @@ run_markov_model <- function(params = NULL,
           event_costs[i, cycle_num] <- event_costs[i, cycle_num] + discounted_cost
           event_qalys[i, cycle_num] <- event_qalys[i, cycle_num] - discounted_qaly
           
-          # Per-event tracking - same values
+          # Per-event tracking
           idx <- match(event, all_events)
           event_costs_by_event[idx, i, cycle_num] <- 
             event_costs_by_event[idx, i, cycle_num] + discounted_cost
           event_qalys_by_event[idx, i, cycle_num] <- 
             event_qalys_by_event[idx, i, cycle_num] - discounted_qaly
-          
         }
       }
-      
     }
   }
   
@@ -726,6 +749,7 @@ run_markov_model <- function(params = NULL,
     event_qalys = event_qalys,
     event_log = event_log,
     cumulative_populations = cumulative_populations,
+    alive_cumulative_populations = alive_cumulative_populations,
     event_costs_by_event = event_costs_by_event,
     event_qalys_by_event = event_qalys_by_event
   ))

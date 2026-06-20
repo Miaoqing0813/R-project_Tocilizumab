@@ -52,25 +52,25 @@ current_row <- current_row + 1
 
 key_results <- data.frame(
   Outcome = c("Incremental Cost", "Incremental QALYs", "ICER (£/QALY)", 
-              "Probability CE at £20,000", "Probability CE at £30,000"),
+              "Probability CE at £25,000", "Probability CE at £35,000"),
   Mean = c(
     mean(inc_costs_psa),
     mean(inc_qalys_psa),
-    mean(psa_icer[is.finite(psa_icer)]),
-    mean((inc_costs_psa / inc_qalys_psa) <= 20000 | (inc_costs_psa <= 0 & inc_qalys_psa >= 0)) * 100,
-    mean((inc_costs_psa / inc_qalys_psa) <= 30000 | (inc_costs_psa <= 0 & inc_qalys_psa >= 0)) * 100
+    mean(psa_icer_mean),
+    mean((inc_costs_psa / inc_qalys_psa) <= 25000 | (inc_costs_psa <= 0 & inc_qalys_psa >= 0)) * 100,
+    mean((inc_costs_psa / inc_qalys_psa) <= 35000 | (inc_costs_psa <= 0 & inc_qalys_psa >= 0)) * 100
   ),
   Lower_95CI = c(
     quantile(inc_costs_psa, 0.025),
     quantile(inc_qalys_psa, 0.025),
-    quantile(psa_icer[is.finite(psa_icer)], 0.025),
+    NA,
     NA,
     NA
   ),
   Upper_95CI = c(
     quantile(inc_costs_psa, 0.975),
     quantile(inc_qalys_psa, 0.975),
-    quantile(psa_icer[is.finite(psa_icer)], 0.975),
+    NA,
     NA,
     NA
   ),

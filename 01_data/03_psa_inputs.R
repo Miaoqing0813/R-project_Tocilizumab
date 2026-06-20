@@ -40,8 +40,12 @@ calc_se_from_ci <- function(lower, upper) {
 # Function to sample transition probabilities from survival analyses
 sample_trans_probs <- function(trans_prob_df, n_sim, time_horizon_months = 30*12) {
   
-  # Pre-allocate matrix for sampled probabilities
+  # Pre-allocate matrix
   sampled_probs <- matrix(NA, nrow = n_sim, ncol = time_horizon_months)
+  
+  # Draw a single uniform percentile (0 to 1) per simulation run, rather than independently sampling the probabilities
+  # This preserves perfect temporal correlation across the entire survival curve
+  u_draws <- runif(n_sim, min = 0, max = 1)
   
   for (cycle in 1:time_horizon_months) {
     mean_prob <- trans_prob_df$trans_prob[cycle]
@@ -62,16 +66,14 @@ sample_trans_probs <- function(trans_prob_df, n_sim, time_horizon_months = 30*12
       # If SE is essentially zero (very tight CI), use the mean
       sampled_probs[, cycle] <- rep(mean_prob, n_sim)
     } else {
-      # Get beta distribution parameters
+      # Get beta distribution parameters for this specific cycle
       beta_params <- betaPar(m = mean_prob, s = se_prob)
       
-      # Sample from beta distribution
-      sampled_probs[, cycle] <- rbeta(n = n_sim, 
+      # Use Quantile Mapping (Inverse Transform Sampling)
+      # Maps our uniform draws to this cycle's exact Beta distribution curve.
+      sampled_probs[, cycle] <- qbeta(p = u_draws, 
                                       shape1 = beta_params$alpha, 
                                       shape2 = beta_params$beta)
-      
-      # Truncate to [0, 1] to handle any numerical issues
-      sampled_probs[, cycle] <- pmin(pmax(sampled_probs[, cycle], 0), 1)
     }
   }
   

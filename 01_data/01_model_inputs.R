@@ -26,6 +26,7 @@ library(zoo)
 library(parallel)
 library(openxlsx)
 
+
 # Intervention arms to compare
 n_arms <- 2
 arms <- c(1, 2)   # 1 = treat (TCZ_plus_GC), 2 = control (GC_alone)
@@ -51,8 +52,9 @@ list2env(as.list(df.params.mean), .GlobalEnv)
 list2env(as.list(df.params.se), .GlobalEnv)
 
 # Mortality
+initial_age = 71
 allcause.mort  <- read.csv(file = "01_data/Raw data/All_cause_mortality.csv", stringsAsFactors = F)
-v.allcause.mort  <- as.matrix(dplyr::select(allcause.mort,Weighted))
+v.allcause.mort  <- as.matrix(dplyr::select(allcause.mort,Total))
 
 get_monthly_mort <- function(ages, mort_table) {
   annual_probs <- mort_table[pmin(round(ages), 100) + 1]
@@ -85,11 +87,11 @@ steroid.hr  <- read.csv(file = "01_data/Raw data/Steroid HR.csv", stringsAsFacto
   
 # Utility Age Adjustment for Population Norms: assuming 50% split between men and women
 population_utilities <- data.frame(
-  age_group = c("65-69", "70-74", "75-79", "80-84", "85-89", "90+"),
-  age_lower = c(65, 70, 75, 80, 85, 90),
-  age_upper = c(69, 74, 79, 84, 89, 100),
-  female_utility = c(0.775, 0.784, 0.730, 0.710, 0.666, 0.666),
-  male_utility = c(0.797, 0.801, 0.788, 0.767, 0.727, 0.656)
+  age_group = c("70-74", "75-79", "80-84", "85-89", "90+"),
+  age_lower = c(70, 75, 80, 85, 90),
+  age_upper = c(74, 79, 84, 89, 100),
+  female_utility = c(0.784, 0.730, 0.710, 0.666, 0.666),
+  male_utility = c(0.801, 0.788, 0.767, 0.727, 0.656)
 )
   
 # Calculate average utility across age groups (50% male, 50% female)
@@ -104,12 +106,7 @@ get_population_utility <- function(age) {
   if (length(idx) > 0) {
     return(population_utilities$avg_utility[idx[1]])
   }
-  
-  # If age is below the lowest range, use the first group
-  if (age < population_utilities$age_lower[1]) {
-    return(population_utilities$avg_utility[1])
-  }
-  
+
   # If age is above the highest range, use the last group
   return(population_utilities$avg_utility[nrow(population_utilities)])
 }

@@ -6,8 +6,8 @@ c_steroid_control_relapse,Total cost of steroid treatments for the comparison gr
 c_steroid_treat_relapse,Total cost of steroid treatments for the treatment group (relapse),2.76,,,0,Log normal,BNF accessed 19/09/2025
 c_steroid_control_sub_remission,Total cost of steroid treatments for the comparison group (subsequent remission),18.4425,,,0,Log normal,BNF accessed 19/09/2025
 c_steroid_treat_sub_remission,Total cost of steroid treatments for the treatment group (subsequent remission),1.8475,,,0,Log normal,BNF accessed 19/09/2025
-c_steroid_monitoring,Monthly monitoring costs for comparison group ,93.97,,,9.397,Log normal,PSSRU and NHS reference cost
-c_TCZ_monitoring,Monthly monitoring costs for TCZ group ,75.4167,,,7.54167,Log normal,NHS reference cost
+c_steroid_monitoring,Monthly monitoring costs for comparison group ,98.68,,,9.868,Log normal,PSSRU and NHS reference cost 2024/25
+c_TCZ_monitoring,Monthly monitoring costs for TCZ group ,79.34,,,7.934,Log normal,NHS reference cost 2024/25
 q_remission,Annual utility of the remission state,0.7713,,,0.00667,Beta,TA518
 q_relapse,Annual utility of the relapse state,0.642,,,0.02446,Beta,TA518
 q_decrement_steroid,Annual disutility of steroid use,0.03,,,0,Uniform,Niederkohr and Levin 2005
@@ -24,21 +24,21 @@ c_hf_y1,Cost of heart failure in the first year,3743.131558,,,207.3448702,Log no
 c_stroke_y2on,Cost of cerebrovascular disease (stroke) from year 2 onwards,557.2934137,,,147.5313156,Log normal,Danese et al. 2016
 c_mi_y2on,Cost of myocardial infarction from year 2 onwards,528.5354647,,,89.14448532,Log normal,Danese et al. 2016
 c_hf_y2on,Cost of heart failure from year 2 onwards,485.6305986,,,141.8931761,Log normal,Danese et al. 2016
-q_multiplier_stroke_y1,Utility of cerebrovascular disease (stroke) in the first year,0.808,0.784,0.834,0.012755102,Beta,Luengo-Fernandez et al. 2013
-q_multiplier_mi_y1,Utility of myocardial infarction in the first year,0.816,0.8,0.833,0.008418367,Beta,Pockett et al. 2018
-q_multiplier_hf_y1,Utility of heart failure in the first year,0.714,0.671,0.754,0.021173469,Beta,Mejia et al. 2014
-q_multiplier_stroke_y2on,Utility of cerebrovascular disease (stroke) from year 2 onwards,0.788,0.757,0.819,0.015816327,Beta,Luengo-Fernandez et al. 2013
-q_multiplier_mi_y2on,Utility of myocardial infarction from year 2 onwards,0.818,0.8,0.837,0.009438776,Beta,Pockett et al. 2018
-q_multiplier_hf_y2on,Utility of heart failure from year 2 onwards,0.714,0.671,0.754,0.021173469,Beta,Mejia et al. 2014
+q_multiplier_stroke_y1,Disutility multiplier for cerebrovascular disease (stroke) in the first year,0.808,0.784,0.834,0.012755102,Beta,Luengo-Fernandez et al. 2013
+q_multiplier_mi_y1,Disutility multiplier for myocardial infarction in the first year,0.816,0.8,0.833,0.008418367,Beta,Pockett et al. 2018
+q_multiplier_hf_y1,Disutility multiplier for heart failure in the first year,0.714,0.671,0.754,0.021173469,Beta,Mejia et al. 2014
+q_multiplier_stroke_y2on,Disutility multiplier for cerebrovascular disease (stroke) from year 2 onwards,0.788,0.757,0.819,0.015816327,Beta,Luengo-Fernandez et al. 2013
+q_multiplier_mi_y2on,Disutility multiplier for myocardial infarction from year 2 onwards,0.818,0.8,0.837,0.009438776,Beta,Pockett et al. 2018
+q_multiplier_hf_y2on,Disutility multiplier for heart failure from year 2 onwards,0.714,0.671,0.754,0.021173469,Beta,Mejia et al. 2014
 p_fractures,Risk of any fracture,0.031,0.026,0.035,0.002295918,Beta,Wu et al. work in progress
 c_fracture_y1,"Cost of any fracture in year 1 (weighted average of hip, vertebral and non-vertebral non-hip fractures) ",2522.632003,2416.413553,2627.725221,53.90603775,Log normal,Gutierrez et al. 2011; Gutierrez et al. 2012
 c_fracture_y2on,"Cost of any fracture in year 2 and onwards (weighted average of hip, vertebral and non-vertebral non-hip fractures) ",415.7394135,314.0976498,519.9911932,52.52386311,Log normal,Gutierrez et al. 2011; Gutierrez et al. 2012
-q_multiplier_fracture_y1,"Utility of any fracture in year 1 (weighted average of hip, vertebral and non-vertebral non-hip fractures) ",0.798,,,0.032,Beta,Strom et al. 2008 & Zethraeus et al. 2006
-q_multiplier_fracture_y2on,"Utility of any fracture in year 2 and onwards (weighted average of hip, vertebral and non-vertebral non-hip fractures) ",0.924,,,0.013,Beta,Strom et al. 2008 & Zethraeus et al. 2006
-c_bp,Cost of bone protection therapy: alendronate combined with calcium and vitamin D supplementation for primary prevention,63.96,,,0,Log normal,BNF accessed 26/06/2024
+q_multiplier_fracture_y1,Disutility multiplier for any fracture in year 1,0.798,,,0.032,Beta,Strom et al. 2008 & Zethraeus et al. 2006
+q_multiplier_fracture_y2on,Disutility multiplier for any fracture in year 2 onwards,0.924,,,0.013,Beta,Strom et al. 2008 & Zethraeus et al. 2006
+c_bp,Montly cost of bone protection therapy: alendronate combined with calcium and vitamin D supplementation for primary prevention,6.18,,,0,Log normal,BNF accessed 26/06/2024
 p_dm,Risk of diabetes mellitus ,0.009,0.008,0.01,0.000510204,Beta,Wu et al. 2020
 c_dm,Annual cost of diabetes mellitus ,580.261,535.625,613.737,19.92653061,Log normal,Zhou et al. 2023
 q_decrement_dm,Annual disutility of diabetes mellitus ,0.0714,,,0.0048,Beta,Sullivan et al. 2011: utility decrement -0.0714 (0.0048)
 p_infection,Risk of hospitalised infection,0.034,0.033,0.036,0.000765306,Beta,Wu et al. 2019
-c_infection,Cost of infections,2869.89,,,286.989,Log normal,NHS reference cost 2023/24
+c_infection,Cost of infections,2572.91,,,257.291,Log normal,NHS reference cost 2024/25
 q_decrement_infection,Annual disutility of infection,0.19,,,0,Uniform,Niederkohr et al. 2004 

@@ -10,7 +10,7 @@ source("02_decision model/01_Markov_model.R")
 # Deterministic CEA results 
 ############################
 
-subgroup = "relapsed"  # Options: "newlydiag", "relapsed", "itt"
+subgroup = "itt"  # Options: "newlydiag", "relapsed", "itt"
 treatment_duration_months <- 12
 treatment_duration_weeks <- 52
 time_horizon_months <- 30*12

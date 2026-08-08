@@ -10,7 +10,7 @@ source("02_decision model/01_Markov_model.R")
 # Deterministic CEA results 
 ############################
 
-subgroup = "itt"  # Options: "newlydiag", "relapsed", "itt"
+subgroup = "relapsed"  # Options: "newlydiag", "relapsed", "itt"
 treatment_duration_months <- 12
 treatment_duration_weeks <- 52
 time_horizon_months <- 30*12
@@ -18,7 +18,6 @@ time_horizon_weeks <- 30*52
 steroid_effect_duration_months <- 30*12 # base case: 30 years of steroid effect; use 5 years, 10 years and 20 years in the scenario analyses
 dist_beyond <- "weibull" # base case: weibull; use exp for sensitivity analyses
 q_decrement_steroid_duration_months <- 2*12 # base case: 2 years of decrement for steroid-related adverse events; use 5 years and 10 years in the scenario analyses
-
 
 # Transition probabilities to first flare 
 surv_results <- generate_first_flare_transition_probs(

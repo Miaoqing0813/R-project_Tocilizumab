@@ -92,7 +92,7 @@ generate_psa_params <- function(n_sim = 10, seed=12345, time_horizon_months = 30
                  "c_fracture_y2on", "c_dm", "c_infection")
   
   # List of all utility variable names (beta distribution)
-  utility_vars <- c("q_remission", "q_relapse", "q_decrement_dm", "q_decrement_infection",
+  utility_vars <- c("q_remission", "q_relapse", "q_decrement_dm", 
                     "q_multiplier_vl", "q_multiplier_stroke_y1", "q_multiplier_mi_y1", 
                     "q_multiplier_hf_y1", "q_multiplier_stroke_y2on", "q_multiplier_mi_y2on", 
                     "q_multiplier_hf_y2on", "q_multiplier_fracture_y1", "q_multiplier_fracture_y2on")

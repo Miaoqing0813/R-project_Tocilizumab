@@ -26,13 +26,9 @@ library(zoo)
 library(parallel)
 library(openxlsx)
 
-
 # Intervention arms to compare
 n_arms <- 2
 arms <- c(1, 2)   # 1 = treat (TCZ_plus_GC), 2 = control (GC_alone)
-
-# Treatment duration 
-is_on_tcz <- function(cycle) cycle <= treatment_duration_months
 
 # Apply discount rates to costs and utilities
 disc_rate <- 0.035 

@@ -301,9 +301,9 @@ run_markov_model <- function(params = NULL,
                        decrement_y2on = q_decrement_dm / 12
                      ),
                      "infection" = list(
-                       cost_y1 = c_infection / 12,
+                       cost_y1 = c_infection/12,
                        cost_y2on = 0,  # No ongoing cost
-                       decrement_y1 = q_decrement_infection / 12,
+                       decrement_y1 = q_decrement_infection/12,
                        decrement_y2on = 0  # No ongoing utility decrement
                      ),
                      list(cost_y1 = 0, cost_y2on = 0, decrement_y1 = 0, decrement_y2on = 0)

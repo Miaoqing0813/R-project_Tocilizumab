@@ -79,7 +79,7 @@ run_markov_model <- function(params = NULL,
     if (state == "Initial remission") {
       schedule_index <- ifelse(arm == 1, "treat", "control")  
     } else if (state %in% c("Relapse","Subsequent remission")) {
-      schedule_index <- ifelse(arm == 1, "treat.relapse", "control.relapse")
+      schedule_index <- ifelse(arm == 1, "treat.relapse", "control.relapse") 
     }
     
     max_cycle <- nrow(steroid.hr)
@@ -407,7 +407,7 @@ run_markov_model <- function(params = NULL,
           }
           
           if (is.null(q_decrement_steroid_duration_months)) {
-            if (cycle_num <= 6) {  # Treatment arm: 6 months
+            if (cycle_num <= 6) {  # If no info on steroid utility decrement duration, then apply it only during the treatment period
               state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
             } else {
               state_utility <- v.q_remission_adjusted[cycle_num]/12
@@ -482,7 +482,14 @@ run_markov_model <- function(params = NULL,
         state_utility <- (v.q_relapse_adjusted[cycle_num] - q_decrement_steroid)/12
         
         if (i == 1) {  # Treatment arm
-          state_cost <- c_steroid_treat_relapse + c_steroid_monitoring
+          
+          # Continue TCZ while within the planned treatment_duration_months
+          if (cycle_num <= treatment_duration_months) {
+            state_cost <- c_steroid_treat_relapse + c_TCZ + c_TCZ_monitoring
+          } else {
+            state_cost <- c_steroid_treat_relapse + c_steroid_monitoring
+          }
+          
         } else {  # Control arm
           state_cost <- c_steroid_control_relapse + c_steroid_monitoring + c_bp
         }
@@ -530,23 +537,24 @@ run_markov_model <- function(params = NULL,
           # State costs and utilities
           if (i == 1) {  # Treatment arm
             
+            # Charge TCZ monthly costs for any cycle that is still within the planned treatment period
+            if (cycle_num <= treatment_duration_months) {
+              state_cost <- ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0) + c_TCZ + c_TCZ_monitoring
+            } else {
+              if (tunnel_idx <= 7) {  # Treatment arm: 7 months
+                state_cost <- ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0) + c_steroid_monitoring
+              } else {
+                state_cost <- 0
+              }
+            }
+            
             if (is.null(q_decrement_steroid_duration_months)) {
               if (tunnel_idx <= 7) {  # Treatment arm: 7 months
                 state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
-                state_cost <- c_steroid_monitoring + 
-                  ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0)
               } else {
                 state_utility <- v.q_remission_adjusted[cycle_num]/12
-                state_cost <- 0
               }
             } else {
-              if (tunnel_idx <= 7) {  # Baseline steroid taper period for treatment
-                state_cost <- c_steroid_monitoring + 
-                  ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0)
-              } else {
-                state_cost <- 0
-              }
-              
               if ((1 + tunnel_idx) <= q_decrement_steroid_duration_months) {
                 state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
               } else {
@@ -614,18 +622,22 @@ run_markov_model <- function(params = NULL,
       
       # Update the cumulative_populations arrays once per cycle, after all states have been processed.
       for (event in all_events) {
-        # The cumulative population is the total from the last cycle plus the new incidents (unadjusted for death)
         if (cycle_num == 1) {
+          # FIRST CYCLE ONLY: Initialize with new incidents
           cumulative_populations[[event]][i, cycle_num] <- event_log[[event]][i, cycle_num]
           alive_cumulative_populations[[event]][i, cycle_num] <- event_log[[event]][i, cycle_num]
         } else {
+          # SUBSEQUENT CYCLES: Add new cases to previous cumulative total
           cumulative_populations[[event]][i, cycle_num] <- cumulative_populations[[event]][i, cycle_num-1] + event_log[[event]][i, cycle_num]
           
+          # Calculate survival rate from previous cycle to current cycle
           if ((1 - pop["Dead", j-1, i]) > 1e-10) {
             survival_rate_cycle <- (1 - pop["Dead", j, i]) / (1 - pop["Dead", j-1, i])
           } else {
             survival_rate_cycle <- 0
           }
+          
+          # Update alive count: previous survivors + new incidents
           alive_cumulative_populations[[event]][i, cycle_num] <- 
             (alive_cumulative_populations[[event]][i, cycle_num-1] * survival_rate_cycle) + event_log[[event]][i, cycle_num]
         }
@@ -635,7 +647,7 @@ run_markov_model <- function(params = NULL,
       for (event in all_events) {
         
         # NEW CASES - YEAR 1: Apply year 1 difference for first 12 months
-        if (event_log[[event]][i, cycle_num] > 1e-10) {
+        if (event_log[[event]][i, cycle_num] > 1e-10) { # Only if new incidents this cycle
           new_cases <- event_log[[event]][i, cycle_num]
           event_params <- get_event_params(event, cycle_num)
           
@@ -648,10 +660,11 @@ run_markov_model <- function(params = NULL,
             if (cycle_num + month_in_year1 <= time_horizon_months) {
               future_cycle <- cycle_num + month_in_year1
               
-              # SAFEGUARD: Prevent out-of-bounds array access at final horizon cycles
+              # Prevent out-of-bounds array access at final horizon cycles
               dead_lookup_idx <- min(future_cycle + 1, time_horizon_months + 1)
               
-              # Adjust new cases for future survival ratio from cycle_num to future_cycle
+              # Adjust for mortality
+              # Some of the new cases will die before these future months
               if ((1 - pop["Dead", j, i]) > 1e-10) {
                 survival_ratio_future <- (1 - pop["Dead", dead_lookup_idx, i]) / (1 - pop["Dead", j, i])
               } else {
@@ -660,6 +673,7 @@ run_markov_model <- function(params = NULL,
               
               alive_new_cases <- new_cases * survival_ratio_future
               
+              # Apply cost and QALY impact with discounting
               discounted_cost <- apply_discount(alive_new_cases * cost_y1_diff, 
                                                 disc_rate, 
                                                 floor((future_cycle - 1)/12) + 1)
@@ -667,6 +681,7 @@ run_markov_model <- function(params = NULL,
                                                 disc_rate, 
                                                 floor((future_cycle - 1)/12) + 1)
               
+              # Add to running totals for future month
               event_costs[i, future_cycle] <- event_costs[i, future_cycle] + discounted_cost 
               event_qalys[i, future_cycle] <- event_qalys[i, future_cycle] - discounted_qaly 
               
@@ -692,6 +707,7 @@ run_markov_model <- function(params = NULL,
           discounted_qaly <- apply_discount(existing_cumulative * event_params$decrement_y2on, 
                                             disc_rate, current_year)
           
+          # Add to running totals
           event_costs[i, cycle_num] <- event_costs[i, cycle_num] + discounted_cost
           event_qalys[i, cycle_num] <- event_qalys[i, cycle_num] - discounted_qaly
           

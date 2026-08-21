@@ -290,9 +290,9 @@ run_markov_model <- function(params = NULL,
                      ),
                      "fractures" = list(
                        cost_y1 = c_fracture_y1 / 12,
-                       cost_y2on = c_fracture_y2on / 12,
+                       cost_y2on = c_fracture_y2on / 12, # change to zero in scenario analysis
                        decrement_y1 = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_fracture_y1) / 12,
-                       decrement_y2on = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_fracture_y2on) / 12
+                       decrement_y2on = v.q_remission_adjusted[cycle_num] * (1-q_multiplier_fracture_y2on) / 12 # change to zero in scenario analysis
                      ),
                      "dm" = list(
                        cost_y1 = c_dm / 12,
@@ -301,9 +301,9 @@ run_markov_model <- function(params = NULL,
                        decrement_y2on = q_decrement_dm / 12
                      ),
                      "infection" = list(
-                       cost_y1 = c_infection/12,
+                       cost_y1 = c_infection/12, # change to zero in scenario analysis
                        cost_y2on = 0,  # No ongoing cost
-                       decrement_y1 = q_decrement_infection/12,
+                       decrement_y1 = q_decrement_infection/12, # change to zero in scenario analysis
                        decrement_y2on = 0  # No ongoing utility decrement
                      ),
                      list(cost_y1 = 0, cost_y2on = 0, decrement_y1 = 0, decrement_y2on = 0)
@@ -482,14 +482,7 @@ run_markov_model <- function(params = NULL,
         state_utility <- (v.q_relapse_adjusted[cycle_num] - q_decrement_steroid)/12
         
         if (i == 1) {  # Treatment arm
-          
-          # Continue TCZ while within the planned treatment_duration_months
-          if (cycle_num <= treatment_duration_months) {
-            state_cost <- c_steroid_treat_relapse + c_TCZ + c_TCZ_monitoring
-          } else {
-            state_cost <- c_steroid_treat_relapse + c_steroid_monitoring
-          }
-          
+          state_cost <- c_steroid_treat_relapse + c_steroid_monitoring
         } else {  # Control arm
           state_cost <- c_steroid_control_relapse + c_steroid_monitoring + c_bp
         }
@@ -537,24 +530,23 @@ run_markov_model <- function(params = NULL,
           # State costs and utilities
           if (i == 1) {  # Treatment arm
             
-            # Charge TCZ monthly costs for any cycle that is still within the planned treatment period
-            if (cycle_num <= treatment_duration_months) {
-              state_cost <- ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0) + c_TCZ + c_TCZ_monitoring
-            } else {
-              if (tunnel_idx <= 7) {  # Treatment arm: 7 months
-                state_cost <- ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0) + c_steroid_monitoring
-              } else {
-                state_cost <- 0
-              }
-            }
-            
             if (is.null(q_decrement_steroid_duration_months)) {
               if (tunnel_idx <= 7) {  # Treatment arm: 7 months
                 state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
+                state_cost <- c_steroid_monitoring + 
+                  ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0)
               } else {
                 state_utility <- v.q_remission_adjusted[cycle_num]/12
+                state_cost <- 0
               }
             } else {
+              if (tunnel_idx <= 7) {  # Baseline steroid taper period for treatment
+                state_cost <- c_steroid_monitoring + 
+                  ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0)
+              } else {
+                state_cost <- 0
+              }
+              
               if ((1 + tunnel_idx) <= q_decrement_steroid_duration_months) {
                 state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
               } else {

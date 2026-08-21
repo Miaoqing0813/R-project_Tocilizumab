@@ -3,7 +3,7 @@
 #####################
 
 # Quick checks 
-################
+#==================
 
 # All input parameters are used in the analysis (i.e. no redundant parameters are retained in the model)
 
@@ -19,8 +19,8 @@ for (i in 1:n_arms) {
 }
 
 # Check there's no negative cost
-baseline_results[["cycle_costs"]]
-baseline_results[["event_costs"]]
+all(baseline_results[["cycle_costs"]] >= 0)
+all(baseline_results[["event_costs"]] >= 0)
 
 # Compare total QALYs and total life years
 baseline_results$total_qalys_sum
@@ -31,52 +31,142 @@ sum(baseline_results$pop_summary[c("Initial remission", "Relapse", "Subsequent r
 
 # Proportion of patients in the death state should not decrease over time
 baseline_results$pop_summary["Dead", , 1]
-death_diff_arm1 <- diff(baseline_results$pop_summary["Dead", , 1])
-any(death_diff_arm1 < 0)
+any(diff(baseline_results$pop_summary["Dead", , 1])<0)
 
 baseline_results$pop_summary["Dead", , 2]
-death_diff_arm1 <- diff(baseline_results$pop_summary["Dead", , 2])
-any(death_diff_arm1 < 0)
+any(death_diff_arm1 <- diff(baseline_results$pop_summary["Dead", , 2])< 0)
 
-# ============================
-# PREDICTIONS OF AES VALIDATION
+
+# Predictions of the AE rates
 # =============================
 
-## The Per-100 Patient-Year Rate Test
-## Cumulative sum of new diabetes cases up to month 12 for both arms
-model_1yr_risk_arm1 <- sum(baseline_results$event_log$dm[1, 1:12]) * 100
-model_1yr_risk_arm2 <- sum(baseline_results$event_log$dm[2, 1:12]) * 100
-cat("Model Predicted 1-Year Diabetes Risk (Arm 1):", round(model_1yr_risk_arm1, 2), "%\n")
-cat("Model Predicted 1-Year Diabetes Risk (Arm 2):", round(model_1yr_risk_arm2, 2), "%\n")
+## Cumulative sum of new cases up to month 12 for both arms
+events <- c("dm", "vl", "stroke", "mi", "hf", "fractures", "infection")
 
-# The sum of all CEAC values at each WTP threshold should equal 1
-wtp_thresholds <- seq(0, 50000, by = 1000)
-validation_matrix <- data.frame(WTP = wtp_thresholds, Arm1_Prob = NA, Arm2_Prob = NA, Total = NA)
+for (event in events) {
   
-for (i in seq_along(wtp_thresholds)) {
-  lambda <- wtp_thresholds[i]
+  model_1yr_risk_arm1 <- sum(baseline_results$event_log[[event]][1, 1:12]) * 100
+  model_1yr_risk_arm2 <- sum(baseline_results$event_log[[event]][2, 1:12]) * 100
   
-  # Calculate Net Monetary Benefit for each iteration in the PSA
-  nmb_arm1 <- (psa_total_qalys[, 1] * lambda) - psa_total_costs[, 1]
-  nmb_arm2 <- (psa_total_qalys[, 2] * lambda) - psa_total_costs[, 2]
+  cat(
+    "Model Predicted 1-Year", toupper(event), "Risk (Arm 1):",
+    round(model_1yr_risk_arm1, 2), "%\n"
+  )
   
-  # Count how often each arm wins at this specific threshold
-  validation_matrix$Arm1_Prob[i] <- mean(nmb_arm1 > nmb_arm2)
-  validation_matrix$Arm2_Prob[i] <- mean(nmb_arm2 >= nmb_arm1)
-  
-  # HORIZONTAL SUMMATION CHECK
-  validation_matrix$Total[i] <- validation_matrix$Arm1_Prob[i] + validation_matrix$Arm2_Prob[i]
+  cat(
+    "Model Predicted 1-Year", toupper(event), "Risk (Arm 2):",
+    round(model_1yr_risk_arm2, 2), "%\n\n"
+  )
 }
 
-# Print the table to verify
-print(validation_matrix) # the total should be one!
-  
+# Healthcare costs
 # ======================
-# EVENT COST VALIDATION
-# ======================
-cat("\n=== CORRECTED EVENT COST VALIDATION ===\n\n")
 
-# For each event: Check cost per incident (proxy for reasonableness)
+pop <- baseline$pop  
+n_cycles <- dim(pop)[2] - 1
+treat_arm <- 1
+control_arm <- 2
+states <- dimnames(pop)$state
+subseq_states <- states[grepl("^Subsequent remission_", states)]
+
+
+computed_TCZ_monitoring <- 0
+computed_steroid_monitoring <- 0
+pop_sum_for_TCZ_monitoring <- 0
+pop_sum_for_steroid_monitoring <- 0
+
+for (cycle_num in 1:n_cycles) {
+  pop_index <- cycle_num + 1  # pop uses index j where cycle_num = j-1
+  
+  # Initial remission
+  pop_init_treat <- pop["Initial remission", pop_index, treat_arm]
+  pop_init_control <- pop["Initial remission", pop_index, control_arm]
+  
+  # Treatment arm: TCZ monitoring applies in Initial remission while within treatment_duration_months
+  if (cycle_num <= treatment_duration_months) {
+    computed_TCZ_monitoring <- computed_TCZ_monitoring + pop_init_treat * c_TCZ_monitoring
+    pop_sum_for_TCZ_monitoring <- pop_sum_for_TCZ_monitoring + pop_init_treat
+  } else {
+    # no steroid monitoring charged for treatment-arm initial remission after TCZ in your code
+  }
+  
+  # Control arm: steroid monitoring applies to initial remission during first 13 cycles
+  if (cycle_num <= 13) {
+    computed_steroid_monitoring <- computed_steroid_monitoring + pop_init_control * c_steroid_monitoring
+    pop_sum_for_steroid_monitoring <- pop_sum_for_steroid_monitoring + pop_init_control
+  }
+  
+  # Relapse state
+  pop_rel_treat <- pop["Relapse", pop_index, treat_arm]
+  pop_rel_control <- pop["Relapse", pop_index, control_arm]
+  
+  # Treatment arm relapse: TCZ monitoring if cycle <= treatment_duration_months, else steroid monitoring
+  if (cycle_num <= treatment_duration_months) {
+    computed_TCZ_monitoring <- computed_TCZ_monitoring + pop_rel_treat * c_TCZ_monitoring
+    pop_sum_for_TCZ_monitoring <- pop_sum_for_TCZ_monitoring + pop_rel_treat
+  } else {
+    computed_steroid_monitoring <- computed_steroid_monitoring + pop_rel_treat * c_steroid_monitoring
+    pop_sum_for_steroid_monitoring <- pop_sum_for_steroid_monitoring + pop_rel_treat
+  }
+  
+  # Control arm relapse: steroid monitoring always applied in code
+  computed_steroid_monitoring <- computed_steroid_monitoring + pop_rel_control * c_steroid_monitoring
+  pop_sum_for_steroid_monitoring <- pop_sum_for_steroid_monitoring + pop_rel_control
+  
+  # Subsequent remission tunnel states (need per-tunnel logic)
+  for (t_idx in seq_along(subseq_states)) {
+    tunnel_state <- subseq_states[t_idx]
+    tunnel_idx <- t_idx
+    pop_treat <- pop[tunnel_state, pop_index, treat_arm]
+    pop_control <- pop[tunnel_state, pop_index, control_arm]
+    
+    # Treatment arm: TCZ monitoring while cycle <= treatment_duration_months
+    if (cycle_num <= treatment_duration_months) {
+      computed_TCZ_monitoring <- computed_TCZ_monitoring + pop_treat * c_TCZ_monitoring
+      pop_sum_for_TCZ_monitoring <- pop_sum_for_TCZ_monitoring + pop_treat
+    } else {
+      # after TCZ stopped (cycle_num > treatment_duration_months), steroid monitoring applies for tunnel_idx <= 7
+      if (tunnel_idx <= 7) {
+        computed_steroid_monitoring <- computed_steroid_monitoring + pop_treat * c_steroid_monitoring
+        pop_sum_for_steroid_monitoring <- pop_sum_for_steroid_monitoring + pop_treat
+      }
+    }
+    
+    # Control arm: steroid monitoring applies for tunnel_idx <= 10 in your code
+    if (tunnel_idx <= 10) {
+      computed_steroid_monitoring <- computed_steroid_monitoring + pop_control * c_steroid_monitoring
+      pop_sum_for_steroid_monitoring <- pop_sum_for_steroid_monitoring + pop_control
+    }
+  }
+}
+
+# Now compute formula-based expected monitoring totals (sanity formula)
+expected_TCZ_monitoring_by_formula <- pop_sum_for_TCZ_monitoring * c_TCZ_monitoring
+expected_steroid_monitoring_by_formula <- pop_sum_for_steroid_monitoring * c_steroid_monitoring
+
+# Print results and relative differences
+cat("Computed TCZ monitoring (from state logic): ", round(computed_TCZ_monitoring, 2), "\n")
+cat("Expected TCZ monitoring (pop sum * unit):    ", round(expected_TCZ_monitoring_by_formula, 2), "\n")
+cat("Relative diff (computed vs expected):        ", round((computed_TCZ_monitoring - expected_TCZ_monitoring_by_formula) / 
+                                                             max(1e-12, expected_TCZ_monitoring_by_formula), 6), "\n\n")
+
+cat("Computed steroid monitoring (from state logic): ", round(computed_steroid_monitoring, 2), "\n")
+cat("Expected steroid monitoring (pop sum * unit):    ", round(expected_steroid_monitoring_by_formula, 2), "\n")
+cat("Relative diff (computed vs expected):            ", round((computed_steroid_monitoring - expected_steroid_monitoring_by_formula) / 
+                                                                 max(1e-12, expected_steroid_monitoring_by_formula), 6), "\n\n")
+
+# For each event: Check cost per incident should be similar although the number of incidents may differ between arms due to steroid exposure
+
+# Extract raw data from baseline results
+event_log <- baseline_results$event_log
+incident_events <- baseline_ae_summary$total_incident_events
+per_event_costs <- baseline_ae_summary$per_event_cost_qaly
+
+# Define all events
+events <- c("vl", "stroke", "mi", "hf", "fractures", "dm", "infection")
+event_labels <- c("Vision Loss", "Stroke", "Myocardial Infarction", 
+                  "Heart Failure", "Fractures", "Diabetes", "Infection")
+
 for (idx in 1:length(events)) {
   event <- events[idx]
   label <- event_labels[idx]
@@ -111,93 +201,114 @@ for (idx in 1:length(events)) {
   cat("\n")
 }
   
-# Compare model results with back of the envelope calculations
-  
-# The PSA results should be fairly similar to the deterministic results
-  ## Compare baseline with PSA sampled means
-  cost_vars <- c("c_steroid_monitoring","c_TCZ_monitoring",
-                 "c_vl_y1","c_vl_y2on","c_stroke_y1","c_mi_y1","c_hf_y1",
-                 "c_stroke_y2on","c_mi_y2on","c_hf_y2on","c_fracture_y1",
-                 "c_fracture_y2on","c_dm","c_infection")
+# PSA results 
+#============
+## Compare baseline with PSA sampled means
+cost_vars <- c("c_steroid_monitoring","c_TCZ_monitoring",
+               "c_vl_y1","c_vl_y2on","c_stroke_y1","c_mi_y1","c_hf_y1",
+               "c_stroke_y2on","c_mi_y2on","c_hf_y2on","c_fracture_y1",
+               "c_fracture_y2on","c_dm","c_infection")
 
-  for (v in cost_vars) {
-    baseline_val <- get(v)
-    sampled_mean <- mean(psa_params_all$scalar_params[[v]])
-    cat(v, " baseline:", baseline_val, " sampled_mean:", sampled_mean, "\n")
+for (v in cost_vars) {
+  baseline_val <- get(v)
+  sampled_mean <- mean(psa_params_all$scalar_params[[v]])
+  cat(v, " baseline:", baseline_val, " sampled_mean:", sampled_mean, "\n")
+}
+  
+utility_vars <- c("q_remission", "q_relapse", "q_decrement_dm", 
+                  "q_multiplier_vl", "q_multiplier_stroke_y1", "q_multiplier_mi_y1", 
+                  "q_multiplier_hf_y1", "q_multiplier_stroke_y2on", "q_multiplier_mi_y2on", 
+                  "q_multiplier_hf_y2on", "q_multiplier_fracture_y1", "q_multiplier_fracture_y2on")
+  
+for (v in utility_vars) {
+  baseline_val <- get(v)
+  sampled_mean <- mean(psa_params_all$scalar_params[[v]])
+  cat(v, " baseline:", baseline_val, " sampled_mean:", sampled_mean, "\n")
+}
+  
+# Check transition probs (first-flare)
+print(data.frame(month = 1:12, 
+                 baseline_tp = trans_probs_first_flare_treat$trans_prob[1:12], 
+                 sampled_tp_mean = colMeans(psa_params_all$vector_params$trans_probs_first_flare_treat)[1:12]))
+cat(" baseline:", probs_subseq_flare_itt_treat, 
+    " sampled_mean:", mean(psa_params_all$scalar_params$probs_subseq_flare_itt_treat))
+cat(" baseline:", probs_subseq_flare_newlydiag_treat, 
+    " sampled_mean:", mean(psa_params_all$scalar_params$probs_subseq_flare_newlydiag_treat))
+cat(" baseline:", probs_subseq_flare_relapsed_treat, 
+    " sampled_mean:", mean(psa_params_all$scalar_params$probs_subseq_flare_relapsed_treat))
+  
+## Reproduce baseline by passing PSA means back into the model
+## Should get almost the same totals when using PSA means
+scalar_means <- colMeans(psa_params_all$scalar_params)
+
+vector_means <- lapply(psa_params_all$vector_params, function(mat) {
+  if (is.matrix(mat) || is.data.frame(mat)) {
+    as.numeric(colMeans(mat))
+  } else {
+    as.numeric(mat)  # if already vector
   }
+})
   
-  utility_vars <- c("q_remission", "q_relapse", "q_decrement_dm", 
-                    "q_multiplier_vl", "q_multiplier_stroke_y1", "q_multiplier_mi_y1", 
-                    "q_multiplier_hf_y1", "q_multiplier_stroke_y2on", "q_multiplier_mi_y2on", 
-                    "q_multiplier_hf_y2on", "q_multiplier_fracture_y1", "q_multiplier_fracture_y2on")
+params_means <- list(scalar_params = as.list(scalar_means),
+                     vector_params = vector_means)
   
-  for (v in utility_vars) {
-    baseline_val <- get(v)
-    sampled_mean <- mean(psa_params_all$scalar_params[[v]])
-    cat(v, " baseline:", baseline_val, " sampled_mean:", sampled_mean, "\n")
-  }
+res_psa_means <- run_markov_model(params = params_means, use_baseline = FALSE,
+                                  subgroup = subgroup,
+                                  time_horizon_months = time_horizon_months,
+                                  time_horizon_weeks = time_horizon_weeks,
+                                  treatment_duration_months = treatment_duration_months,
+                                  steroid_effect_duration_months = steroid_effect_duration_months)
   
-  # Check transition probs (first-flare)
-  print(data.frame(month = 1:12, 
-                   baseline_tp = trans_probs_first_flare_treat$trans_prob[1:12], 
-                   sampled_tp_mean = colMeans(psa_params_all$vector_params$trans_probs_first_flare_treat)[1:12]))
-  cat(" baseline:", probs_subseq_flare_itt_treat, 
-      " sampled_mean:", mean(psa_params_all$scalar_params$probs_subseq_flare_itt_treat))
-  cat(" baseline:", probs_subseq_flare_newlydiag_treat, 
-      " sampled_mean:", mean(psa_params_all$scalar_params$probs_subseq_flare_newlydiag_treat))
-  cat(" baseline:", probs_subseq_flare_relapsed_treat, 
-      " sampled_mean:", mean(psa_params_all$scalar_params$probs_subseq_flare_relapsed_treat))
+print(baseline_results$total_costs)
+print(res_psa_means$total_costs_sum)
+print(baseline_results$total_qalys)
+print(res_psa_means$total_qalys_sum)
   
-  ## Reproduce baseline by passing PSA means back into the model
-  ## Should get almost the same totals when using PSA means
-  scalar_means <- colMeans(psa_params_all$scalar_params)
+# Check the distributin of ICERs
+mean(inc_costs_psa) / mean(inc_qalys_psa) # Ratio of means
+mean(psa_icer[is.finite(psa_icer)], na.rm = TRUE) # Mean of ICERs 
+median(psa_icer[is.finite(psa_icer)], na.rm = TRUE) # Median of ICERs 
+
+summary(inc_qalys_psa)
+table(sign(inc_qalys_psa))           # how many positive / negative / zero-ish
+sum(abs(inc_qalys_psa) < 1e-6)       # count near-zero denominators
+summary(psa_icer)
+quantile(psa_icer[is.finite(psa_icer)], probs = c(0.01,0.1,0.25,0.5,0.75,0.9,0.99))
+# identify extreme sims
+which(abs(psa_icer) > 1e6)           # sims producing huge ICERs
   
-  vector_means <- lapply(psa_params_all$vector_params, function(mat) {
-    if (is.matrix(mat) || is.data.frame(mat)) {
-      as.numeric(colMeans(mat))
-    } else {
-      as.numeric(mat)  # if already vector
-    }
-  })
+lambda <- 25000
+nmb <- lambda * inc_qalys_psa - inc_costs_psa
+mean_nmb <- mean(nmb)
+prob_cost_effective <- mean(nmb > 0)   # probability TCZ is cost-effective at this WTP
+cat("mean NMB:", mean_nmb, "prob CE:", prob_cost_effective, "\n")
+
+# The sum of all CEAC values at each WTP threshold should equal 1
+wtp_thresholds <- seq(0, 50000, by = 1000)
+validation_matrix <- data.frame(WTP = wtp_thresholds, Arm1_Prob = NA, Arm2_Prob = NA, Total = NA)
+
+for (i in seq_along(wtp_thresholds)) {
+  lambda <- wtp_thresholds[i]
   
-  params_means <- list(scalar_params = as.list(scalar_means),
-                       vector_params = vector_means)
+  # Calculate Net Monetary Benefit for each iteration in the PSA
+  nmb_arm1 <- (psa_total_qalys[, 1] * lambda) - psa_total_costs[, 1]
+  nmb_arm2 <- (psa_total_qalys[, 2] * lambda) - psa_total_costs[, 2]
   
-  res_psa_means <- run_markov_model(params = params_means, use_baseline = FALSE,
-                                    subgroup = subgroup,
-                                    time_horizon_months = time_horizon_months,
-                                    time_horizon_weeks = time_horizon_weeks,
-                                    treatment_duration_months = treatment_duration_months,
-                                    steroid_effect_duration_months = steroid_effect_duration_months)
+  # Count how often each arm wins at this specific threshold
+  validation_matrix$Arm1_Prob[i] <- mean(nmb_arm1 > nmb_arm2)
+  validation_matrix$Arm2_Prob[i] <- mean(nmb_arm2 >= nmb_arm1)
   
-  print(baseline_results$total_costs)
-  print(res_psa_means$total_costs_sum)
-  print(baseline_results$total_qalys)
-  print(res_psa_means$total_qalys_sum)
-  
-  # Check the distributin of ICERs
-  mean(inc_costs_psa) / mean(inc_qalys_psa) # Ratio of means
-  mean(psa_icer[is.finite(psa_icer)], na.rm = TRUE) # Mean of ICERs 
-  median(psa_icer[is.finite(psa_icer)], na.rm = TRUE) # Median of ICERs 
-  
-  summary(inc_qalys_psa)
-  table(sign(inc_qalys_psa))           # how many positive / negative / zero-ish
-  sum(abs(inc_qalys_psa) < 1e-6)       # count near-zero denominators
-  summary(psa_icer)
-  quantile(psa_icer[is.finite(psa_icer)], probs = c(0.01,0.1,0.25,0.5,0.75,0.9,0.99))
-  # identify extreme sims
-  which(abs(psa_icer) > 1e6)           # sims producing huge ICERs
-  
-  lambda <- 25000
-  nmb <- lambda * inc_qalys_psa - inc_costs_psa
-  mean_nmb <- mean(nmb)
-  prob_cost_effective <- mean(nmb > 0)   # probability TCZ is cost-effective at this WTP
-  cat("mean NMB:", mean_nmb, "prob CE:", prob_cost_effective, "\n")
-  
+  # HORIZONTAL SUMMATION CHECK
+  validation_matrix$Total[i] <- validation_matrix$Arm1_Prob[i] + validation_matrix$Arm2_Prob[i]
+}
+
+# Print the table to verify
+print(validation_matrix) # the total should be one!
   
 
 # Run univariate sensitivity analyses
 #####################################
+
 # Increase and decrease the time horizon
 
 # Increase and decrease discount rate for costs and outcomes 

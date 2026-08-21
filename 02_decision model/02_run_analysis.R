@@ -5,7 +5,10 @@ rm(list=ls())
 
 source("01_data/01_model_inputs.R")
 source("01_data/02_survival analyses_all.R")
+
+# Depending on whether TCZ continue until planned treatment duration
 source("02_decision model/01_Markov_model.R")
+source("02_decision model/01a_Markov_model_no_TCZ_at_relapse.R")
 
 # Deterministic CEA results 
 ############################
@@ -318,7 +321,6 @@ abline(v = c(25000, 35000), lty = 2, col = "red")
 dev.off()
 
 # Save results in Excel
-source("02_decision model/03_export_excel.R")
+source("02_decision model/03_export_Excel.R")
 
-# Save the R environment
-save.image(file = "myEnvironment.RData")
+

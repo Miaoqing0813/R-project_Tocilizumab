@@ -1,5 +1,5 @@
 Name,Description,Mean,LCI,UCI,SE,Distribution,Source
-c_TCZ,Montly cost of Tociliumab treatment ,913.12,,,0,Log normal,
+c_TCZ,Montly cost of Tociliumab treatment ,821,,,0,Log normal,
 c_steroid_control_init_remission,Total cost of steroid treatments for the comparison group (initial remission),36.75,,,0,Log normal,BNF accessed 19/09/2025
 c_steroid_treat_init_remission,Total cost of steroid treatments for the treatment group (initial remission),18.66,,,0,Log normal,BNF accessed 19/09/2025
 c_steroid_control_relapse,Total cost of steroid treatments for the comparison group (relapse),5.3475,,,0,Log normal,BNF accessed 19/09/2025

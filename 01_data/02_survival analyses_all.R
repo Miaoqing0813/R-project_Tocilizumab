@@ -233,6 +233,17 @@ generate_first_flare_transition_probs <- function(
       ggsurvfit::add_risktable()
     
     # Fitted survival curves plots
+    surv_first_flare_treat_within_plot <- fit.fun(
+      time = "time",
+      status = "status",
+      data = IPD_first_flare_data_treat,
+      extrapolate = FALSE,
+      times = seq(0, 52, by = 8), 
+      xlow = 0, xhigh = 52,
+      ylow = 0.7, yhigh = 1,
+      mods = c("exp", "weibull", "lnorm", "gamma")
+    )
+    
     surv_first_flare_treat_beyond_plot <- fit.fun(
       time = "time",
       status = "status",
@@ -241,7 +252,18 @@ generate_first_flare_transition_probs <- function(
       times = seq(0, time_horizon_weeks, by = 52), 
       xlow = 0, xhigh = time_horizon_weeks,
       ylow = 0, yhigh = 1,
-      mods = c("exp", "weibull")
+      mods = c("exp", "weibull", "lnorm", "gamma")
+    )
+    
+    surv_first_flare_control_within_plot <- fit.fun(
+      time = "time",
+      status = "status",
+      data = IPD_first_flare_data_control,
+      extrapolate = FALSE,
+      times = seq(0, 52, by = 8), 
+      xlow = 0, xhigh = 52,
+      ylow = 0.4, yhigh = 1,
+      mods = c("exp", "weibull", "lnorm", "gamma")
     )
     
     surv_first_flare_control_beyond_plot <- fit.fun(
@@ -252,7 +274,7 @@ generate_first_flare_transition_probs <- function(
       times = seq(0, time_horizon_weeks, by = 52), 
       xlow = 0, xhigh = time_horizon_weeks,
       ylow = 0, yhigh = 1,
-      mods = c("exp", "weibull")
+      mods = c("exp", "weibull", "lnorm", "gamma")
     )
     
     # Transition probability plots
@@ -275,6 +297,8 @@ generate_first_flare_transition_probs <- function(
     trans_probs_treat = trans_probs_treat,
     trans_probs_control = trans_probs_control,
     models = list(
+      survival_models_treat = survival_models_treat,
+      survival_models_control = survival_models_control,
       treat_within = model_treat_within,
       treat_beyond = model_treat_beyond,
       control_within = model_control_within,
@@ -291,7 +315,9 @@ generate_first_flare_transition_probs <- function(
       time_horizon_months = time_horizon_months
     ),
     km_treat_plot = km_treat_plot, 
-    km_control_plot = km_control_plot, 
+    km_control_plot = km_control_plot,
+    surv_first_flare_treat_within_plot = surv_first_flare_treat_within_plot,
+    surv_first_flare_control_within_plot = surv_first_flare_control_within_plot,
     surv_first_flare_treat_beyond_plot = surv_first_flare_treat_beyond_plot,
     surv_first_flare_control_beyond_plot = surv_first_flare_control_beyond_plot,
     trans_prob_treat_plot = trans_prob_treat_plot, 

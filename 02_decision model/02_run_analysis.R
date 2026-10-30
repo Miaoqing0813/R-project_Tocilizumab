@@ -6,8 +6,10 @@ rm(list=ls())
 source("01_data/01_model_inputs.R")
 source("01_data/02_survival analyses_all.R")
 
-# Depending on whether TCZ continue until planned treatment duration
-source("02_decision model/01_Markov_model.R")
+# Depending on treatment waning effect
+source("02_decision model/01_Markov_model.R") 
+#source("02_decision model/01a_Markov_model_TCZ_relapse.R") # TCZ continue at relapse
+#source("02_decision model/01b_Markov_model_sustained_TCZ_benefits_subseq_flare.R")
 
 # Deterministic CEA results 
 ############################
@@ -18,9 +20,8 @@ treatment_duration_weeks <- 52
 time_horizon_months <- 30*12
 time_horizon_weeks <- 30*52
 steroid_effect_duration_months <- 30*12 # base case: 30 years of steroid effect; use 5 years, 10 years and 20 years in the scenario analyses
-dist_beyond <- "weibull" # base case: weibull; use exp for sensitivity analyses
+dist_beyond <- "weibull" # base case: weibull; use exp, lnorm, gamma for sensitivity analyses
 q_decrement_steroid_duration_months <- 2*12 # base case: 2 years of decrement for steroid-related adverse events; use 5 years and 10 years in the scenario analyses
-# source("02_decision model/01a_Markov_model_TCZ_relapse.R") # use when continuing TCZ at relapse
 
 # Transition probabilities to first flare 
 surv_results <- generate_first_flare_transition_probs(
@@ -33,9 +34,19 @@ surv_results <- generate_first_flare_transition_probs(
   verbose = TRUE
 )
 
-print(surv_results$trans_prob_treat_plot)
-print(surv_results$trans_prob_control_plot)
-summary(surv_results$models$control_beyond, type = "survival", t = 260, ci = TRUE)[[1]] # 5-year survival for the comparison group
+surv_results$models$survival_models_treat
+surv_results$models$survival_models_control
+
+#print(surv_results$km_treat_plot)
+#print(surv_results$km_control_plot)
+#print(surv_results$surv_first_flare_treat_within_plot)
+#print(surv_results$surv_first_flare_control_within_plot)
+#print(surv_results$surv_first_flare_treat_beyond_plot)
+#print(surv_results$surv_first_flare_control_beyond_plot)
+#print(surv_results$trans_prob_treat_plot)
+#print(surv_results$trans_prob_control_plot)
+#summary(surv_results$models$control_beyond, type = "survival", t = 260, ci = TRUE)[[1]] # 5-year survival for the comparison group
+
 trans_probs_first_flare_treat <- surv_results$trans_probs_treat
 trans_probs_first_flare_control <- surv_results$trans_probs_control
 

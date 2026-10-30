@@ -70,6 +70,11 @@ run_markov_model <- function(params = NULL,
     assign(paste0(prob, "_monthly"), monthly_prob)
   }
   
+  # Convert monthly probabilities into rates to apply hazard ratios
+  adjust_prob_by_hr <- function(p, hr) {
+    1 - exp(-hr * (-log(1 - p)))
+  }
+  
   # Function to calculate probabilities for steroid adverse events
   get_steroid_ae_probs_by_state <- function(cycle, state, arm, 
                                             time_in_state = 1,
@@ -134,21 +139,53 @@ run_markov_model <- function(params = NULL,
       }
       
       steroid_ae_probs <- list(
-        stroke     = p_stroke_monthly    * cvd_hr,
-        mi         = p_mi_monthly        * cvd_hr,
-        hf         = p_hf_monthly        * cvd_hr,
-        dm         = p_dm_monthly        * dm_hr,
-        infection  = p_infection_monthly * infection_hr,
-        fractures  = p_fractures_monthly * fractures_hr,
-        mortality  = v.allcause.mort.monthly[cycle] * mortality_hr
+        stroke     = adjust_prob_by_hr(p_stroke_monthly, cvd_hr),
+        mi         = adjust_prob_by_hr(p_mi_monthly, cvd_hr),
+        hf         = adjust_prob_by_hr(p_hf_monthly, cvd_hr),
+        dm         = adjust_prob_by_hr(p_dm_monthly, dm_hr),
+        infection  = adjust_prob_by_hr(p_infection_monthly, infection_hr),
+        fractures  = adjust_prob_by_hr(p_fractures_monthly, fractures_hr),
+        mortality  = adjust_prob_by_hr(v.allcause.mort.monthly[cycle], mortality_hr)
       )
     }
     
     return(steroid_ae_probs)
   }
   
+  # Select appropriate subsequent flare probability based on subgroups and treatment groups
+  get_subseq_flare_prob <- function(arm, cycle, subgroup) {
+    
+    if (cycle <= treatment_duration_months) {
+      if (arm == 1) {
+        prob <- switch(subgroup,
+                       "newlydiag" = probs_subseq_flare_newlydiag_treat,
+                       "relapsed"  = probs_subseq_flare_relapsed_treat,
+                       "itt"      = probs_subseq_flare_itt_treat,
+                       stop("Invalid subgroup. Must be one of: 'newlydiag', 'relapsed', or 'itt'")
+        )
+      } else {
+        prob <- switch(subgroup,
+                       "newlydiag" = probs_subseq_flare_newlydiag_control,
+                       "relapsed"  = probs_subseq_flare_relapsed_control,
+                       "itt"      = probs_subseq_flare_itt_control,
+                       stop("Invalid subgroup. Must be one of: 'newlydiag', 'relapsed', or 'itt'")
+        )
+      }
+    } else {
+      # beyond treatment duration, treatment arm converges to control risk
+      prob <- switch(subgroup,
+                     "newlydiag" = probs_subseq_flare_newlydiag_control,
+                     "relapsed"  = probs_subseq_flare_relapsed_control,
+                     "itt"      = probs_subseq_flare_itt_control,
+                     stop("Invalid subgroup. Must be one of: 'newlydiag', 'relapsed', or 'itt'")
+      )
+    }
+    
+    return(prob)
+  }
+  
   # Time-dependent transition probability matrices (TPM) creation function
-  get_tpm <- function(arm, cycle) {
+  get_tpm <- function(arm, cycle, subgroup) {
     
     # Ensure cycle does not exceed the length of input data
     cycle <- min(cycle, time_horizon_months) 
@@ -164,17 +201,6 @@ run_markov_model <- function(params = NULL,
         p_first_flare <- trans_probs_first_flare_treat[cycle]
       }
       
-      # Select appropriate subsequent flare probability based on subgroup
-      if (subgroup == "newlydiag") {
-        p_flare <- probs_subseq_flare_newlydiag_treat
-      } else if (subgroup == "relapsed") {
-        p_flare <- probs_subseq_flare_relapsed_treat
-      } else if (subgroup == "itt") {
-        p_flare <- probs_subseq_flare_itt_treat
-      } else {
-        stop("Invalid subgroup. Must be one of: 'newlydiag', 'relapsed', or 'itt'")
-      }
-      
     } else {
       # Check if we're using sampled probabilities (PSA) or baseline
       if (is.data.frame(trans_probs_first_flare_control)) {
@@ -184,18 +210,9 @@ run_markov_model <- function(params = NULL,
         # PSA mode: trans_probs is a vector of probabilities for this simulation
         p_first_flare <- trans_probs_first_flare_control[cycle]
       }
-      
-      # Select appropriate subsequent flare probability based on subgroup
-      if (subgroup == "newlydiag") {
-        p_flare <- probs_subseq_flare_newlydiag_control
-      } else if (subgroup == "relapsed") {
-        p_flare <- probs_subseq_flare_relapsed_control
-      } else if (subgroup == "itt") {
-        p_flare <- probs_subseq_flare_itt_control
-      } else {
-        stop("Invalid subgroup. Must be one of: 'newlydiag', 'relapsed', or 'itt'")
-      }
     }
+    
+    p_flare <- get_subseq_flare_prob(arm = arm, cycle = cycle, subgroup = subgroup)
     
     # Initialize TPM
     tpm <- matrix(0, nrow = n_states, ncol = n_states,
@@ -384,7 +401,7 @@ run_markov_model <- function(params = NULL,
       cycle_num <- j - 1  # Current cycle number (1-based)
       
       # Get TPM for this cycle
-      tpm <- get_tpm(arm = i, cycle = cycle_num)
+      tpm <- get_tpm(arm = i, cycle = cycle_num, subgroup = subgroup)
       
       # Update population using TPM
       pop[, j, i] <- pop[, j-1, i] %*% tpm

@@ -34,8 +34,8 @@ surv_results <- generate_first_flare_transition_probs(
   verbose = TRUE
 )
 
-surv_results$models$survival_models_treat
-surv_results$models$survival_models_control
+#surv_results$models$survival_models_treat
+#surv_results$models$survival_models_control
 
 #print(surv_results$km_treat_plot)
 #print(surv_results$km_control_plot)

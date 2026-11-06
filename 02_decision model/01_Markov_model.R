@@ -184,6 +184,16 @@ run_markov_model <- function(params = NULL,
     return(prob)
   }
   
+  # Convert taper durations to model months (12 months = 52 weeks)
+  initial_steroid_months <- c(treat = 26, control = 53) * 12 / 52
+  relapse_steroid_months <- c(treat = 8,  control = 43) * 12 / 52
+  
+  # Fraction of the cycle covered by the decrement window.
+  # The window starts with the taper and ends persistence_months after taper completion.
+  decrement_fraction <- function(month_since_course, taper_months, persistence_months) {
+    pmax(0, pmin(1, taper_months + persistence_months - (month_since_course - 1)))
+  }
+  
   # Time-dependent transition probability matrices (TPM) creation function
   get_tpm <- function(arm, cycle, subgroup) {
     
@@ -423,43 +433,27 @@ run_markov_model <- function(params = NULL,
             state_cost <- 0
           }
           
-          if (is.null(q_decrement_steroid_duration_months)) {
-            if (cycle_num <= 6) {  # If no info on steroid utility decrement duration, then apply it only during the treatment period
-              state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
-            } else {
-              state_utility <- v.q_remission_adjusted[cycle_num]/12
-            }
-          } else {
-            if (cycle_num <= q_decrement_steroid_duration_months) {
-              state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
-            } else {
-              state_utility <- v.q_remission_adjusted[cycle_num]/12
-            }
-          }
-          
+          state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid * 
+                              decrement_fraction(
+                                month_since_course = cycle_num,
+                                taper_months = initial_steroid_months["treat"],
+                                persistence_months = q_decrement_steroid_duration_months
+                              )) / 12
+
         } else {  # Control arm
           
-          if (is.null(q_decrement_steroid_duration_months)) {
-            if (cycle_num <= 13) {
-              state_cost <- ifelse(cycle_num == 1, c_steroid_control_init_remission, 0) + c_steroid_monitoring + c_bp
-              state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
-            } else {
-              state_cost <- 0
-              state_utility <- v.q_remission_adjusted[cycle_num]/12
-            }
+          if (cycle_num <= initial_steroid_months["control"]) {  
+            state_cost <- ifelse(cycle_num == 1, c_steroid_control_init_remission, 0) + c_steroid_monitoring + c_bp
           } else {
-            if (cycle_num <= 13) {  # Baseline steroid taper period for control
-              state_cost <- ifelse(cycle_num == 1, c_steroid_control_init_remission, 0) + c_steroid_monitoring + c_bp
-            } else {
-              state_cost <- 0
-            }
-            
-            if (cycle_num <= q_decrement_steroid_duration_months) {
-              state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
-            } else {
-              state_utility <- v.q_remission_adjusted[cycle_num]/12
-            }
+            state_cost <- 0
           }
+          
+          state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid * 
+                              decrement_fraction(
+                                month_since_course = cycle_num,
+                                taper_months = initial_steroid_months["control"],
+                                persistence_months = q_decrement_steroid_duration_months
+                              )) / 12
         }
         
         # Apply discounting and add to cycle totals
@@ -547,56 +541,42 @@ run_markov_model <- function(params = NULL,
           # State costs and utilities
           if (i == 1) {  # Treatment arm
             
-            if (is.null(q_decrement_steroid_duration_months)) {
-              if (tunnel_idx <= 7) {  # Treatment arm: 7 months
-                state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
-                state_cost <- c_steroid_monitoring + 
-                  ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0)
-              } else {
-                state_utility <- v.q_remission_adjusted[cycle_num]/12
-                state_cost <- 0
-              }
-            } else {
-              if (tunnel_idx <= 7) {  # Baseline steroid taper period for treatment
+              if (tunnel_idx <= relapse_steroid_months["treat"]) {  
                 state_cost <- c_steroid_monitoring + 
                   ifelse(tunnel_idx == 1, c_steroid_treat_sub_remission, 0)
               } else {
                 state_cost <- 0
               }
               
-              if ((1 + tunnel_idx) <= q_decrement_steroid_duration_months) {
-                state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
-              } else {
-                state_utility <- v.q_remission_adjusted[cycle_num]/12
-              }
-            }
+            state_utility <- (
+              v.q_remission_adjusted[cycle_num] - q_decrement_steroid * 
+                decrement_fraction(
+                  month_since_course = tunnel_idx + 1,
+                  taper_months = relapse_steroid_months["treat"],
+                  persistence_months = q_decrement_steroid_duration_months
+                )
+            ) / 12
             
           } else {  # Control arm
             
-            if (is.null(q_decrement_steroid_duration_months)) {
-              if (tunnel_idx <= 10) {  # Control arm: 10 months
-                state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
-                state_cost <- c_steroid_monitoring  + c_bp + 
-                  ifelse(tunnel_idx == 1, c_steroid_control_sub_remission, 0)
-              } else {
-                state_utility <- v.q_remission_adjusted[cycle_num]/12
-                state_cost <- 0
-              }
-            } else {
-              if (tunnel_idx <= 10) {  # Baseline steroid taper period for control
+              if (tunnel_idx <= relapse_steroid_months["control"]) {  
                 state_cost <- c_steroid_monitoring  + c_bp + 
                   ifelse(tunnel_idx == 1, c_steroid_control_sub_remission, 0)
               } else {
                 state_cost <- 0
               }
+            
+            state_utility <- (
+              v.q_remission_adjusted[cycle_num] - q_decrement_steroid * 
+                decrement_fraction(
+                  month_since_course = tunnel_idx + 1,
+                  taper_months = relapse_steroid_months["control"],
+                  persistence_months = q_decrement_steroid_duration_months
+                )
+            ) / 12
               
-              if ((1 + tunnel_idx) <= q_decrement_steroid_duration_months) {
-                state_utility <- (v.q_remission_adjusted[cycle_num] - q_decrement_steroid)/12
-              } else {
-                state_utility <- v.q_remission_adjusted[cycle_num]/12
-              }
             }
-          }
+          
           
           # Apply discounting and add to cycle totals
           cycle_costs[i, cycle_num] <- cycle_costs[i, cycle_num] + 

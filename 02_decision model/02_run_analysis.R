@@ -8,7 +8,7 @@ source("01_data/02_survival analyses_all.R")
 
 # Depending on treatment waning effect
 source("02_decision model/01_Markov_model.R") 
-#source("02_decision model/01a_Markov_model_TCZ_relapse.R") # TCZ continue at relapse
+source("02_decision model/01a_Markov_model_TCZ_relapse.R") # TCZ continue at relapse
 #source("02_decision model/01b_Markov_model_sustained_TCZ_benefits_subseq_flare.R")
 
 # Deterministic CEA results 
@@ -125,7 +125,7 @@ cl <- makeCluster(n_cores)
 # This automatically makes all functions and variables available
 clusterCall(cl, function() {
   source("01_data/01_model_inputs.R")
-  source("02_decision model/01_Markov_model.R")
+  source("02_decision model/01a_Markov_model_TCZ_relapse.R")
 })
 
 # Now you only need to export the iteration-specific data
@@ -319,8 +319,8 @@ png("03_results/CEAC_Plot.png", width = 2000, height = 1600, res = 300)
 
 wtp_range <- seq(0, 50000, by = 1000)
 prob_ce <- sapply(wtp_range, function(wtp) {
-  nhb <- inc_qalys_psa - inc_costs_psa/wtp
-  mean(nhb > 0, na.rm = TRUE)
+  nmb <- wtp * inc_qalys_psa - inc_costs_psa
+  mean(nmb > 0, na.rm = TRUE)
 })
 
 plot(wtp_range, prob_ce, type = "l", lwd = 2,

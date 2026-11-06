@@ -33,8 +33,8 @@ percentStyle <- createStyle(numFmt = "0.00")
 
 # Probability that TCZ+GC is cost-effective at a given WTP threshold
 prob_ce_at_wtp <- function(wtp) {
-  nhb <- inc_qalys_psa - inc_costs_psa/wtp
-  mean(nhb > 0, na.rm = TRUE)
+  nmb <- wtp * inc_qalys_psa - inc_costs_psa
+  mean(nmb > 0, na.rm = TRUE)
 }
 
 # SHEET 1: EXECUTIVE SUMMARY
@@ -203,11 +203,8 @@ prob_ce_table <- data.frame(
 
 for (i in 1:length(wtp_thresholds)) {
   wtp <- wtp_thresholds[i]
-  if (wtp == 0) {
-    prob <- mean(inc_costs_psa <= 0 & inc_qalys_psa >= 0)
-  } else {
-    prob <- prob_ce_at_wtp(wtp)
-  }
+  prob <- prob_ce_at_wtp(wtp)
+  
   prob_ce_table$Probability[i] <- round(prob, 4)
   prob_ce_table$Percentage[i] <- round(prob * 100, 2)
 }
@@ -454,11 +451,7 @@ prob_ce_ceac <- numeric(length(wtp_range))
 
 for (i in 1:length(wtp_range)) {
   wtp <- wtp_range[i]
-  if (wtp == 0) {
-    prob_ce_ceac[i] <- mean(inc_costs_psa <= 0 & inc_qalys_psa >= 0)
-  } else {
-    prob_ce_ceac[i] <- prob_ce_at_wtp(wtp)
-  }
+  prob_ce_ceac[i] <- prob_ce_at_wtp(wtp)
 }
 
 ceac_data <- data.frame(

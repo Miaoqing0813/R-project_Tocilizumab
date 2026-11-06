@@ -319,7 +319,8 @@ png("03_results/CEAC_Plot.png", width = 2000, height = 1600, res = 300)
 
 wtp_range <- seq(0, 50000, by = 1000)
 prob_ce <- sapply(wtp_range, function(wtp) {
-  mean((inc_costs_psa / inc_qalys_psa) <= wtp)
+  nhb <- inc_qalys_psa - inc_costs_psa/wtp
+  mean(nhb > 0, na.rm = TRUE)
 })
 
 plot(wtp_range, prob_ce, type = "l", lwd = 2,

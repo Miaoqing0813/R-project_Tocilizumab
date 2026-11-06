@@ -31,6 +31,12 @@ countStyle <- createStyle(numFmt = "0.000")
 rateStyle <- createStyle(numFmt = "0.00")
 percentStyle <- createStyle(numFmt = "0.00")
 
+# Probability that TCZ+GC is cost-effective at a given WTP threshold
+prob_ce_at_wtp <- function(wtp) {
+  nhb <- inc_qalys_psa - inc_costs_psa/wtp
+  mean(nhb > 0, na.rm = TRUE)
+}
+
 # SHEET 1: EXECUTIVE SUMMARY
 #######################################
 
@@ -57,8 +63,8 @@ key_results <- data.frame(
     mean(inc_costs_psa),
     mean(inc_qalys_psa),
     mean(psa_icer_mean),
-    mean((inc_costs_psa / inc_qalys_psa) <= 25000 | (inc_costs_psa <= 0 & inc_qalys_psa >= 0)) * 100,
-    mean((inc_costs_psa / inc_qalys_psa) <= 35000 | (inc_costs_psa <= 0 & inc_qalys_psa >= 0)) * 100
+    100 * prob_ce_at_wtp(25000),
+    100 * prob_ce_at_wtp(35000)
   ),
   Lower_95CI = c(
     quantile(inc_costs_psa, 0.025),
@@ -200,7 +206,7 @@ for (i in 1:length(wtp_thresholds)) {
   if (wtp == 0) {
     prob <- mean(inc_costs_psa <= 0 & inc_qalys_psa >= 0)
   } else {
-    prob <- mean((inc_costs_psa / inc_qalys_psa) <= wtp | (inc_costs_psa <= 0 & inc_qalys_psa >= 0))
+    prob <- prob_ce_at_wtp(wtp)
   }
   prob_ce_table$Probability[i] <- round(prob, 4)
   prob_ce_table$Percentage[i] <- round(prob * 100, 2)
@@ -451,7 +457,7 @@ for (i in 1:length(wtp_range)) {
   if (wtp == 0) {
     prob_ce_ceac[i] <- mean(inc_costs_psa <= 0 & inc_qalys_psa >= 0)
   } else {
-    prob_ce_ceac[i] <- mean((inc_costs_psa / inc_qalys_psa) <= wtp | (inc_costs_psa <= 0 & inc_qalys_psa >= 0))
+    prob_ce_ceac[i] <- prob_ce_at_wtp(wtp)
   }
 }
 
